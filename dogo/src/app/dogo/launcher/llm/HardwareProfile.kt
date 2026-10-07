@@ -1,0 +1,86 @@
+package app.dogo.launcher.llm
+
+import android.app.ActivityManager
+import android.content.Context
+import android.os.Environment
+import android.os.StatFs
+
+/**
+ * Chooses the largest model a device can plausibly run.
+ *
+ * The bar is deliberately conservative. Asking for more RAM than the device has
+ * gets the model memory-mapped into a process that then gets killed — which,
+ * because this is the launcher, means the user is left with no home screen at
+ * all. Answering with a smaller model is a much cheaper failure.
+ */
+object HardwareProfile {
+
+    data class Recommendation(
+        /** Best model that fits, or null when nothing fits. */
+        val primary: ModelCatalog.ModelVariant?,
+        /** True when [primary] is null and the user needs the cloud tier. */
+        val cloudOnly: Boolean,
+        val rationale: String,
+    )
+
+    /**
+     * Picks a model for a device reporting [ramGb] of RAM and [freeStorageGb] free.
+     *
+     * [hasNpu] is accepted for API symmetry but deliberately does not influence
+     * the result: we cannot reliably detect one, and letting an optimistic guess
+     * skip the RAM ceiling is how the previous implementation ended up always
+     * promoting to the largest model.
+     */
+    fun recommendModel(ramGb: Int, freeStorageGb: Int, hasNpu: Boolean = false): Recommendation {
+        val usableBytes = freeStorageGb.toLong() * ModelCatalog.BYTES_PER_GB
+
+        val fit = ModelCatalog.variants()
+            .filter { it.minRamGb <= ramGb }
+            .filter { ModelCatalog.requiredStorageBytes(it) <= usableBytes }
+            .maxByOrNull { it.sizeBytes }
+
+        return when {
+            fit != null -> Recommendation(
+                primary = fit,
+                cloudOnly = false,
+                rationale = "This device has room for ${fit.displayName} " +
+                    "(${"%.1f".format(fit.sizeGb)} GB).",
+            )
+
+            ramGb < ModelCatalog.variants().minOf { it.minRamGb } -> Recommendation(
+                primary = null,
+                cloudOnly = true,
+                rationale = "This device has $ramGb GB of RAM, which is below the " +
+                    "${ModelCatalog.variants().minOf { it.minRamGb }} GB needed to run a model " +
+                    "on-device. Setup will use the cloud tier instead.",
+            )
+
+            else -> Recommendation(
+                primary = null,
+                cloudOnly = true,
+                rationale = "This device needs about " +
+                    "${ModelCatalog.variants().minOf { ModelCatalog.requiredStorageGb(it) }} GB of " +
+                    "free storage to run a model on-device, but only $freeStorageGb GB is free. " +
+                    "Free up space, or use the cloud tier.",
+            )
+        }
+    }
+
+    /** Samples the device this is running on. */
+    fun fromDevice(context: Context): Recommendation {
+        val memoryInfo = ActivityManager.MemoryInfo()
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        activityManager.getMemoryInfo(memoryInfo)
+
+        return recommendModel(
+            ramGb = (memoryInfo.totalMem / ModelCatalog.BYTES_PER_GB).toInt(),
+            freeStorageGb = freeStorageGb(),
+            hasNpu = false,
+        )
+    }
+
+    private fun freeStorageGb(): Int {
+        val stat = StatFs(Environment.getDataDirectory().path)
+        return (stat.availableBytes / ModelCatalog.BYTES_PER_GB).toInt()
+    }
+}

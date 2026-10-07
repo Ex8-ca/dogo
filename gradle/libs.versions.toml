@@ -157,6 +157,9 @@ androidx-test-core = "androidx.test:core:1.7.0"
 # Real org.json for JVM unit tests: production code uses Android's bundled
 # org.json, which android.jar only stubs out for plain JVM tests.
 json = "org.json:json:20250517"
+# llama.cpp JNI bindings. Ships de/kherud/llama/Linux-Android/aarch64/libjllama.so,
+# so arm64 Android devices can run GGUF models directly.
+llama = "de.kherud:llama:4.2.0"
 junit = { group = "junit", name = "junit", version.ref = "junitVersion" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
 mockito-robolectric = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }

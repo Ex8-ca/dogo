@@ -524,6 +524,10 @@ dependencies {
 
     implementation libs.androidx.exifinterface
 
+    // Dogo: on-device inference. GGUF weights are downloaded at runtime (see
+    // llm/ModelCatalog), so nothing large is baked into the APK.
+    implementation libs.llama
+
     debugImplementation libs.leakcanary.android
     debugImplementation libs.leakcanary.androidstudio
 
@@ -573,6 +577,8 @@ licensee {
     allow(SpdxId.Apache_20)
     allow(SpdxId.BSD_3_Clause)
     allow(SpdxId.GPL_20_or_later)
+    // Dogo: on-device inference runs on llama.cpp, which is MIT.
+    allow(SpdxId.MIT)
     allowDependency(libs.libsu.core)
     allowDependency(libs.libsu.service)
     allowUrl("https://github.com/patrykmichalik/opto/blob/master/LICENSE")
