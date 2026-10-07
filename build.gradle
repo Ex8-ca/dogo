@@ -538,6 +538,7 @@ dependencies {
     testImplementation libs.androidx.test.core
     testImplementation libs.androidx.test.runner
     testImplementation libs.kotlinx.coroutines.test
+    testImplementation libs.json
 
     testRuntimeOnly libs.junit
 }
@@ -556,7 +557,7 @@ spotless {
         removeUnusedImports()
     }
     kotlin {
-        target("lawnchair/src/**/*.kt")
+        target("lawnchair/src/**/*.kt", "dogo/src/**/*.kt", "dogo/tests/**/*.kt", "dogo/androidTest/**/*.kt")
         ktlint(libs.ktlint.get().version).customRuleSets([
             libs.composeRules.get().toString()
         ]).editorConfigOverride([
