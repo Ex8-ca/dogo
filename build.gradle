@@ -227,7 +227,6 @@ android {
 
         debug {
             applicationIdSuffix ".debug"
-            resValue("string", "derived_app_name", "Lawnchair (Debug)")
 
             manifestPlaceholders.quickstepMinSdk = "0"
             manifestPlaceholders.quickstepMaxSdk = "100000"
@@ -236,7 +235,6 @@ android {
         }
 
         release {
-            resValue("string", "derived_app_name", "Lawnchair")
             minifyEnabled true
             shrinkResources true
             pseudoLocalesEnabled false
@@ -294,8 +292,19 @@ android {
             isDefault true
         }
 
+        // Dogo's own distribution channel. Distinct applicationId so Dogo
+        // installs side-by-side with an upstream Lawnchair build, which matters
+        // when testing against the launcher this is forked from.
+        dogo {
+            applicationId 'app.dogo.launcher'
+            dimension "channel"
+        }
+
         configureEach {
-            resValue("string", "launcher_component", "${applicationId}/app.lawnchair.LawnchairLauncher")
+            // launcher_component used to be emitted here, but ${applicationId}
+            // is not resolved yet while flavors are being configured, so every
+            // channel got the literal "null/app.lawnchair.LawnchairLauncher".
+            // It is emitted per variant from variant.applicationId instead.
         }
     }
 
@@ -348,6 +357,13 @@ android {
             manifest.srcFile "quickstep/AndroidManifest-launcher.xml"
         }
 
+        // Same launcher-shaped manifest as the other shipping channels: the
+        // plain quickstep manifest pulls in Smartspacer, which declares
+        // minSdk 29 and fails the merge against this project's minSdk 26.
+        lawnWithQuickstepDogo {
+            manifest.srcFile "quickstep/AndroidManifest-launcher.xml"
+        }
+
         withQuickstep {
             res.srcDirs = ['quickstep/res', 'quickstep/recents_ui_overrides/res']
             java.srcDirs = ['quickstep/src', 'quickstep/dagger', 'quickstep/recents_ui_overrides/src', 'quickstep/src_protolog']
@@ -373,15 +389,60 @@ android {
     }
 }
 
+// Emits the per-variant strings that used to be buildType/flavor resValues.
+abstract class GenerateAppNameRes extends DefaultTask {
+
+    @Input
+    abstract Property<String> getAppName()
+
+    @Input
+    abstract Property<String> getLauncherComponent()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDirectory()
+
+    @TaskAction
+    void generate() {
+        def valuesDir = new File(outputDirectory.get().asFile, "values")
+        valuesDir.mkdirs()
+        new File(valuesDir, "dogo_app_name.xml").text = """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="derived_app_name" translatable="false">${appName.get()}</string>
+    <string name="launcher_component" translatable="false">${launcherComponent.get()}</string>
+</resources>
+"""
+    }
+}
+
 androidComponents {
     onVariants(selector().all()) { variant ->
         def channel = variant.productFlavors.last().second
         variant.outputs.forEach { output ->
-            output.outputFileName.set("Lawnchair.${output.versionName.get()}.$channel.${variant.buildType}.apk")
+            // The Dogo channel is no longer a Lawnchair build, so don't stamp
+            // its brand onto the APK filename either.
+            def brand = (channel == "dogo") ? "Dogo" : "Lawnchair"
+            output.outputFileName.set("${brand}.${output.versionName.get()}.$channel.${variant.buildType}.apk")
         }
 
-        // Lawnchair-TODO: A better way to sync proto file to the IDE preventing missing or outdated result. Please remove if this is the best solution we have right now
+        // `derived_app_name` is the app label. It used to be a buildType
+        // resValue, but AGP gives buildType resValues precedence over flavor
+        // ones, so a per-channel resValue was silently ignored. Emitting it per
+        // variant instead keeps the upstream channel names byte-identical while
+        // letting Dogo actually brand itself.
+        def isDogoChannel = (channel == "dogo")
+        def appName = isDogoChannel ? "Dogo Phone"
+                : (variant.buildType == "debug" ? "Lawnchair (Debug)" : "Lawnchair")
         def capitalizedVariantName = variant.name.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + variant.name.substring(1)
+        def generateAppName = tasks.register("generate${capitalizedVariantName}AppName", GenerateAppNameRes) {
+            it.appName.set(appName)
+            // variant.applicationId is fully merged here (flavor id + buildType
+            // suffix), unlike the flavor-scoped applicationId.
+            it.launcherComponent.set("${variant.applicationId.get()}/app.lawnchair.LawnchairLauncher")
+            it.outputDirectory.set(layout.buildDirectory.dir("generated/dogoRes/${variant.name}"))
+        }
+        variant.sources.res.addGeneratedSourceDirectory(generateAppName) { it.outputDirectory }
+
+        // Lawnchair-TODO: A better way to sync proto file to the IDE preventing missing or outdated result. Please remove if this is the best solution we have right now
         def generatedProtoJavaDir = layout.buildDirectory
             .dir("generated/java/generate${capitalizedVariantName}Proto/java")
             .get()
