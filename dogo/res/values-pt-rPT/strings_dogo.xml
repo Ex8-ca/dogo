@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for pt-rPT, mirroring
+     lawnchair/res/values-pt-rPT/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Gerido por Dogo</string>
+    <string name="accessibility_service_description">Para efetuar algumas ações, o Dogo precisa de permissões de Acessibilidade \n\nPor favor ative os serviços de acessibilidade.\n\n Para bloquear o seu telefone ou abrir o ecrã de Recentes, o Dogo usa os serviços de acessibilidade.</string>
+    <string name="debug_restart_launcher">Reiniciar o Dogo</string>
+    <string name="missing_usage_access_desc">Para utilizar as Sugestões de aplicações, ligue o controlo de utilização para <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Para aceder a atalhos e funcionalidades adicionais, define o Dogo como o teu launcher predefinido</string>
+    <string name="onboarding_open_settings_title">Configurar Dogo</string>
+    <string name="onboarding_major_upgrade_title">Conheça o novo Dogo</string>
+    <string name="onboarding_welcome">Bem-vindo ao Dogo!</string>
+    <string name="smartspace_widget_toggle_description">O At a Glance pode ser adicionado manualmente ao ecrã proncipal através dos Widgets do Dogo</string>
+    <string name="dt2s_admin_hint">Para usar o duplo toque para Suspender, defina o Dogo como uma aplicação de administração do dispositivo. Toque em \"Abrir definições\", depois em \"Ativar esta aplicação de administração do dispositivo.\"</string>
+    <string name="generic_a11y_hint">Para usar o %1$s, ative o serviço de Acessibilidade do Dogo. Toque em \"Abrir Definições,\" depois selecione \"Dogo\" e ative \"Utilizar Dogo.\"</string>
+    <string name="generic_a11y_disclaimer">Dogo uses Accessibility\'s `performGlobalAction` method to perform this action. This is a sensitive permission that allows monitoring other apps. However, Dogo is not configured for that functionality and receives no events.</string>
+    <string name="lawnchair_bug_report">Relatório de erro do Dogo</string>
+    <string name="unfolded_grid_description">O Dogo junta duas páginas para preencher um ecrã maior</string>
+    <string name="search_provider_sponsored_description">%1$s e o Dogo têm um acordo de partilha de receitas.\n\nPesquisar com o %1$s ajuda a apoiar o Dogo.</string>
+    <string name="quickswitch_ignored_warning">Estas definições serão ignoradas, pois o Dogo não está seleccionado como o launcher predefinido</string>
+</resources>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for nl-rNL, mirroring
+     lawnchair/res/values-nl-rNL/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Beheerd door Dogo</string>
+    <string name="accessibility_service_description">Om bepaalde acties uit te voeren, zoals het vergrendelen van je telefoon bij het uitvoeren van een gebaar, heeft Dogo de toegankelijkheidsdienst nodig.\n\nDogo observeert echter geen gebruikersacties, hoewel de bevoegdheid om dat te doen vereist is voor alle toegankelijkheidsdiensten. Dogo negeert elke gebeurtenis die door het systeem wordt gemeld.\n\nOm je telefoon te vergrendelen of om het recente apps-scherm te openen, maakt Dogo gebruik van performGlobalAction.</string>
+    <string name="debug_restart_launcher">Dogo opnieuw starten</string>
+    <string name="missing_usage_access_desc">Om app-suggesties te verbeteren, schakel gebruikstoegang in voor <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Stel Dogo in als standaard launcher voor toegang tot snelkoppelingen en extra functies</string>
+    <string name="onboarding_open_settings_title">Dogo instellen</string>
+    <string name="onboarding_major_upgrade_title">Maak kennis met de nieuwe Dogo</string>
+    <string name="onboarding_welcome">Welkom bij Dogo!</string>
+    <string name="smartspace_widget_toggle_description">In een oogopslag kan aan het startscherm worden toegevoegd met de Dogo-widget</string>
+    <string name="dt2s_admin_hint">Om Dogo toe te staan dat het het apparaat in slaapstand brengt, dient u deze in te stellen als app voor apparaatbeheer. Tik op \"Instellingen openen\" en tik vervolgens op \"Apparaatbeheer instellen voor deze app.\"</string>
+    <string name="generic_a11y_hint">Om te %1$s, schakel de toegankelijkheidsservice van Dogo in. Tik op \"Instellingen openen\", selecteer \"Dogo\" en schakel \"Dogo gebruiken\" in.</string>
+    <string name="generic_a11y_disclaimer">Dogo gebruikt Toegankelijkheidsmethode `performGlobalAction` om deze actie uit te voeren. Dit is een gevoelige permissie waarmee je andere apps kunt volgen. Dogo is echter niet geconfigureerd voor die functionaliteit en volgt geen gebeurtenissen.</string>
+    <string name="lawnchair_bug_report">Dogo foutrapportage</string>
+    <string name="unfolded_grid_description">Dogo voegt twee pagina\'s samen om het grotere scherm te vullen</string>
+    <string name="search_provider_sponsored_description">%1$s en Dogo hebben een overeenkomst a.g. het delen van inkomsten.\n\nZoeken met %1$s helpt Dogo te ondersteunen.</string>
+    <string name="quickswitch_ignored_warning">Deze instellingen worden genegeerd omdat Dogo niet is ingesteld als de aanbieder voor het scherm Recente apps</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for sw, mirroring
+     lawnchair/res/values-sw/strings.xml. -->
+<resources xmlns:tools="http://schemas.android.com/tools" xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="debug_restart_launcher">Anzisha Dogo</string>
+    <string name="smartspace_widget_toggle_description">Kwa Mtazamo inaweza kuongezwa kwa mikono kwa kuwekan\"Dogo \" wijeti.</string>
+    <string name="smartspace_mode_lawnchair">Dogo</string>
+    <string name="hotseat_mode_lawnchair">Dogo</string>
+    <string name="dt2s_admin_hint">Ili kutumia Gusa Mara Mbili ili Kulala, weka Dogo kama programu ya msimamizi wa kifaa. Gusa Fungua Mipangilio, kisha uguse \"Washa programu ya msimamizi wa kifaa hiki.\"</string>
+    <string name="lawnchair_bug_report">Ripoti ya Hitilafu ya Dogo</string>
+</resources>

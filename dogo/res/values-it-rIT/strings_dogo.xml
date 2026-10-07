@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for it-rIT, mirroring
+     lawnchair/res/values-it-rIT/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Gestito da Dogo</string>
+    <string name="accessibility_service_description">Per eseguire certe azioni quando fai un gesto, come ad esempio bloccare il tuo dispositivo, Dogo ha bisogno dell\'autorizzazione all\'accesso all\'accessibilità.\n\nDogo non guarda le tue azioni, ma tutti i servizi di accessibilità hanno bisogno della medesima autorizzazione per funzionare. Dogo ignora qualsiasi evento inviato dal sistema.\n\nPer bloccare il tuo telefono oppure aprire la schermata Recenti, Dogo usa il servizio di accessibilità performGlobalAction.</string>
+    <string name="debug_restart_launcher">Riavvia Dogo</string>
+    <string name="missing_usage_access_desc">Per migliorare i suggerimenti delle App, abilità l\'accesso a <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Per accedere alle scorciatoie e ad altre funzioni aggiuntive, imposta Dogo come launcher predefinito</string>
+    <string name="onboarding_open_settings_title">Imposta Dogo</string>
+    <string name="onboarding_major_upgrade_title">Ecco a te il nuovo Dogo</string>
+    <string name="onboarding_welcome">Ti diamo il benvenuto su Dogo!</string>
+    <string name="smartspace_widget_toggle_description">A Colpo d\'Occhio può essere aggiunto alla schermata Home come un widget di Dogo</string>
+    <string name="dt2s_admin_hint">Per mettere il dispositivo in sospensione, imposta Dogo come app di amministrazione del dispositivo. Tocca \"Apri impostazioni\", poi tocca \"Attiva questa app di amministrazione del dispositivo\".</string>
+    <string name="generic_a11y_hint">Per %1$s, attiva i servizi di accessibilità. Tocca su \"apri impostazioni\" e seleziona \"Usa Dogo.\"</string>
+    <string name="generic_a11y_disclaimer">Dogo usa il metodo di Accessibilità `performGlobalAction` per compiere questa azione. Questo è un permesso sensibile che permette di monitorare le altre app. In ogni caso, Dogo non è configurato per questo tipo di funzionalità e non riceve eventi.</string>
+    <string name="lawnchair_bug_report">Segnala un bug di Dogo</string>
+    <string name="unfolded_grid_description">Dogo unisce due pagine insieme per riempire lo schermo più largo</string>
+    <string name="search_provider_sponsored_description">%1$s e Dogo hanno un accordo di condivisione dei profitti.\n\nLa ricerca tramite %1$s aiuta a supportare Dogo.</string>
+    <string name="quickswitch_ignored_warning">Queste impostazioni saranno ignorate poiché Dogo non è selezionato come fornitore della schermata delle app recenti</string>
+</resources>

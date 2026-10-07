@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for zh-rCN, mirroring
+     lawnchair/res/values-zh-rCN/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">由 Dogo 管理</string>
+    <string name="accessibility_service_description">当您使用手势执行某些操作（如锁定手机）时，Dogo 需要辅助功能权限。\n\nDogo 不会监视您的操作，尽管所有辅助功能服务都要求此项权限。Dogo 会丢弃系统发送的任何事件。\n\n要锁定手机或打开最近任务屏幕，Dogo 会使用 performGlobalAction 辅助功能服务。</string>
+    <string name="debug_restart_launcher">重启 Dogo</string>
+    <string name="missing_usage_access_desc">要提升应用建议，启动<xliff:g id="name" example="Dogo">%1$s</xliff:g>的使用权限</string>
+    <string name="set_default_launcher_tip">要访问快捷方式和其他功能，请将 Dogo 设置为默认启动器</string>
+    <string name="onboarding_open_settings_title">设置 Dogo</string>
+    <string name="onboarding_major_upgrade_title">全新 Dogo 来了</string>
+    <string name="onboarding_welcome">欢迎来到 Dogo！</string>
+    <string name="smartspace_widget_toggle_description">资讯一览可以通过 Dogo 小部件添加到主屏幕</string>
+    <string name="dt2s_admin_hint">要使设备进入睡眠状态，请将 Dogo 设置为设备管理员应用。点击“打开设置”，然后点击“激活此设备管理员应用”。</string>
+    <string name="generic_a11y_hint">想要%1$s，启动 Dogo 辅助功能服务。点击“打开设置”，选择“Dogo”然后启用“使用 Dogo”。</string>
+    <string name="generic_a11y_disclaimer">Dogo 使用辅助功能的 `performGlobalAction` 方法来执行此操作。这是一个敏感权限，允许监控其他应用。但是，Dogo 未配置此功能，因此不会收到任何事件。</string>
+    <string name="lawnchair_bug_report">Dogo 错误报告</string>
+    <string name="unfolded_grid_description">Dogo 将两页纸拼在一起，以填充更大的显示空间</string>
+    <string name="search_provider_sponsored_description">%1$s 和 Dogo 有收益分成协议。\n\n使用 %1$s 进行搜索有助于支持 Dogo。</string>
+    <string name="quickswitch_ignored_warning">这些设置将被忽略，因为 Dogo 未被设置为“最近任务”屏幕提供方</string>
+</resources>

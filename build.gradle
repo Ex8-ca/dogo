@@ -165,6 +165,8 @@ android {
         manifestPlaceholders.quickstepMaxSdk = quickstepMaxSdk
         buildConfigField "int", "QUICKSTEP_MIN_SDK", quickstepMinSdk
         buildConfigField "int", "QUICKSTEP_MAX_SDK", quickstepMaxSdk
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     androidResources {
@@ -362,6 +364,12 @@ android {
         // minSdk 29 and fails the merge against this project's minSdk 26.
         lawnWithQuickstepDogo {
             manifest.srcFile "quickstep/AndroidManifest-launcher.xml"
+            // Dogo-branded string overrides (see dogo/res/values/strings_dogo.xml).
+            // These live on the combined variant source set, not the `dogo`
+            // flavor: the `app` dimension (lawn) outranks `channel` for
+            // resource conflicts, so a flavor-level override is merged but
+            // then loses to lawnchair/res/values/strings.xml.
+            res.srcDir 'dogo/res'
         }
 
         withQuickstep {
@@ -604,6 +612,12 @@ dependencies {
     testImplementation libs.androidx.test.runner
     testImplementation libs.kotlinx.coroutines.test
     testImplementation libs.json
+
+    androidTestImplementation libs.junit
+    androidTestImplementation libs.google.truth
+    androidTestImplementation libs.androidx.junit
+    androidTestImplementation libs.androidx.test.core
+    androidTestImplementation libs.androidx.test.runner
 
     testRuntimeOnly libs.junit
 }

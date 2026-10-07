@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for fr-rFR, mirroring
+     lawnchair/res/values-fr-rFR/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Gérée par Dogo</string>
+    <string name="accessibility_service_description">Pour pouvoir effectuer certaines actions lorsque vous faites un geste (par exemple : verrouiller votre téléphone), Dogo a besoin des droits d\'accessibilité.\n\nDogo ne surveille pas vos actions, bien que tous les services d\'accessibilité demandent ce droit. Dogo ignore tous les événements envoyés par le système.\n\nPour verrouiller votre téléphone ou ouvrir l\'écran Récents, Dogo utilise le service d\'accessibilité performGlobalAction.</string>
+    <string name="debug_restart_launcher">Redémarrer Dogo</string>
+    <string name="missing_usage_access_desc">Pour améliorer les suggestions d\'applis, activez l\'accès aux données d\'utilisation pour <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Pour accéder aux raccourcis et à plus de fonctionnalités, définissez Dogo en tant que lanceur d\'applications par défaut</string>
+    <string name="onboarding_open_settings_title">Configurez Dogo</string>
+    <string name="onboarding_major_upgrade_title">Dites bonjour au nouveau Dogo</string>
+    <string name="onboarding_welcome">Bienvenue dans Dogo !</string>
+    <string name="smartspace_widget_toggle_description">Aperçu peut être ajouté à l\'écran d\'accueil grâce au widget Dogo</string>
+    <string name="dt2s_admin_hint">Pour mettre l\'appareil en veille, définissez Dogo comme appli d\'administration de l\'appareil. Appuyez sur « Ouvrir les paramètres » puis appuyez sur « Activer l\'appli d\'administration de cet appareil. »</string>
+    <string name="generic_a11y_hint">Pour %1$s, activez le service d\'accessibilité Dogo. Appuyez sur « Ouvrir les paramètres », sélectionnez « Dogo » puis activez « Utiliser Dogo. »</string>
+    <string name="generic_a11y_disclaimer">Dogo utilise la méthode d\'accessibilité `performGlobalAction`. Il s\'agit d\'une autorisation sensible qui permet de suivre le comportement des autres applis, mais Dogo n\'est pas configuré de manière à utiliser ces fonctionnalités et ne reçoit donc aucun événement.</string>
+    <string name="lawnchair_bug_report">Signalement de bug Dogo</string>
+    <string name="unfolded_grid_description">Dogo associe deux pages pour remplir le grand écran</string>
+    <string name="search_provider_sponsored_description">%1$s et Dogo ont signé un accord de partage des revenus.\n\nEn effectuant vos recherches avec %1$s, vous soutenez Dogo.</string>
+    <string name="quickswitch_ignored_warning">Ces paramètres seront ignorés car Dogo n\'est pas défini comme fournisseur d\'écran Récents</string>
+</resources>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for fi-rFI, mirroring
+     lawnchair/res/values-fi-rFI/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Dogoin hallinnoima</string>
+    <string name="accessibility_service_description">Suorittaakseen tiettyjä toimintoja, kuten lukitakseen puhelimesi, kun käytät jotain elettä, Dogo pitää asettaa saavutettavuussovellukseksi.\n\nDogo ei seuraa mitään käyttäjän toimintaa, vaikkakin kyseistä lupaa käytetään kaikille saavutettavuussovelluksille. Dogo hylkää kaikki tapahtumat, jotka käyttöjärjestelmä lähettää.\n\nJotta Dogo voisi lukita puhelimesi tai avata viimeisimpien sovellusten näkymän, se käyttää performGlobalAction saavutettavuuspalvelua.</string>
+    <string name="debug_restart_launcher">Uudelleenkäynnistä Dogo</string>
+    <string name="missing_usage_access_desc">To improve app suggestions, turn on usage access for <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Päästäksesi käsiksi pikku alkeisiin ja muihin lisäominaisuuksiin, aseta Dogo oletusaloitusnäyttösovellukseksesi.</string>
+    <string name="onboarding_open_settings_title">Aseta Dogo</string>
+    <string name="onboarding_major_upgrade_title">Tutustu uuteen Dogoiin</string>
+    <string name="onboarding_welcome">Tervetuloa Dogoiin!</string>
+    <string name="smartspace_widget_toggle_description">At a Glance voidaan lisätä aloitusnäyttöön Dogo widgetin avulla</string>
+    <string name="dt2s_admin_hint">Sammuttaaksesi puhelimesi kaksoisnapauttamalla, aseta Dogo laitteenhallintasovellukseksi. Paina \"Avaa asetukset\", ja sitten \"Aktivoi laitteenhallintasovellus\".</string>
+    <string name="generic_a11y_hint">Jotta voit käyttää %1$s, ota Dogoin esteettömyyspalvelu käyttöön napauttamalla \"Avaa asetukset\", valitse Dogo ja ota käyttöön \"Käytä Dogoia.\"</string>
+    <string name="generic_a11y_disclaimer">Dogo käyttää Esteettömyspalvelun `performGlobalAction`-menetelmää tämän toiminnon suorittamiseen. Tämä on arkaluonteinen käyttöoikeus, joka sallii muiden sovellusten valvonnan. Dogo ei kuitenkaan ole määritetty tälle toiminnallisuudelle eikä saa mitään tapahtumia.</string>
+    <string name="lawnchair_bug_report">Dogoin virheraportti</string>
+    <string name="unfolded_grid_description">Dogo yhdistää kaksi sivua yhteen täyttääkseen isomman näytön</string>
+    <string name="search_provider_sponsored_description">%1$s ja Dogo ovat sopineet tulojen jakamisesta.\n\nEtsiminen %1$sn kautta auttaa Dogoia.</string>
+    <string name="quickswitch_ignored_warning">Näitä asetuksia ei oteta huomioon, koska Dogo ei ole asetettu Viimeisimmät-näytön tarjoajaksi</string>
+</resources>

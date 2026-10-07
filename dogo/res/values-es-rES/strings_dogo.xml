@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for es-rES, mirroring
+     lawnchair/res/values-es-rES/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Gestionado por Dogo</string>
+    <string name="accessibility_service_description">Para realizar ciertas acciones cuando usas un gesto, como bloquear el teléfono, Dogo requiere los servicios de accesibilidad.\n\nDogo no mira tus acciones, aunque todos los servicios de accesibilidad requieran este privilegio. Dogo descarta cada evento enviado por el sistema.\n\nPara bloquear el teléfono o abrir la pestaña de recientes, Dogo usa el performGlobalAction servicio de accesibilidad.</string>
+    <string name="debug_restart_launcher">Reiniciar Dogo</string>
+    <string name="missing_usage_access_desc">To improve app suggestions, turn on usage access for <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Para acceder a atajos y más cosas pon a Dogo como tu lanzador de aplicaciones predeterminado</string>
+    <string name="onboarding_open_settings_title">Configurar Dogo</string>
+    <string name="onboarding_major_upgrade_title">Meet the new Dogo</string>
+    <string name="onboarding_welcome">¡Bienvenido a Dogo!</string>
+    <string name="smartspace_widget_toggle_description">At a Glance can be added to the home screen with the Dogo widget</string>
+    <string name="dt2s_admin_hint">Para poner el dispositivo en reposo, configure Dogo como aplicación de administración. Pulse \"Abrir configuración\" y luego \"Activar esta aplicación de administración\".</string>
+    <string name="generic_a11y_hint">To %1$s, turn on the Dogo accessibility service. Tap \"Open settings\", choose \"Dogo\" and turn on \"Use Dogo.\"</string>
+    <string name="generic_a11y_disclaimer">Dogo utiliza el método `performGlobalAction` de Accesibilidad para realizar esta acción. Este es un permiso confidencial que permite supervisar otras aplicaciones. Sin embargo, Dogo no está configurado para esa función.</string>
+    <string name="lawnchair_bug_report">Informar de fallos de Dogo</string>
+    <string name="unfolded_grid_description">Dogo pairs two pages together to fill the larger display</string>
+    <string name="search_provider_sponsored_description">%1$s Dogo tienen un acuerdo de reparto de ingresos.\n\nPor lo que al buscar con %1$s nos ayudas económicamente.</string>
+    <string name="quickswitch_ignored_warning">These settings will be ignored because Dogo isn\'t set as the Recents screen provider</string>
+</resources>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for et-rEE, mirroring
+     lawnchair/res/values-et-rEE/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Haldab Dogo</string>
+    <string name="accessibility_service_description">Teatud toimingute tegemiseks viipete kasutamisel, näiteks telefoni lukustamiseks, vajab Dogo juurdepääsetavuse luba.\n\nDogo ei jälgi sinu toiminguid, kuigi kõik juurdepääsetavusteenused nõuavad seda õigust. Dogo eirab kõiki süsteemi saadetud sündmusi.\n\nTelefoni lukustamiseks või viimaste rakenduste vaate avamiseks kasutab Dogo teenust performGlobalAction.</string>
+    <string name="debug_restart_launcher">Taaskäivita Dogo</string>
+    <string name="missing_usage_access_desc">To improve app suggestions, turn on usage access for <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Otseteede ja lisafunktsioonide kasutamiseks määra Dogo vaikekäivitajaks</string>
+    <string name="onboarding_open_settings_title">Seadista Dogo</string>
+    <string name="onboarding_major_upgrade_title">Tutvu uue Dogoiga</string>
+    <string name="onboarding_welcome">Tere tulemast Dogoi kasutajaks!</string>
+    <string name="smartspace_widget_toggle_description">Ülevaate saab avakuvale lisada Dogo vidinaga</string>
+    <string name="dt2s_admin_hint">Seadme unerežiimile viimiseks määra Dogo seadmeadministraatori rakenduseks. Puuduta valikut \"Ava sätted\" ja seejärel valikut \"Aktiviseeri seadme administraatori rakendus\".</string>
+    <string name="generic_a11y_hint">Mõiste %1$s jaoks lülita sisse Dogoi juurdepääsetavuse teenus. Puuduta valikut „Ava seaded”, vali „Dogo” ja lülita sisse „Kasuta Dogoi”.</string>
+    <string name="generic_a11y_disclaimer">Dogo kasutab selle toimingu tegemiseks juurdepääsetavuse meetodit `performGlobalAction`. See on tundlik luba, mis võimaldab jälgida teisi rakendusi. Dogo pole aga selle funktsiooni jaoks seadistatud ega saa ühtegi sündmust.</string>
+    <string name="lawnchair_bug_report">Dogo\'i veaaruanne</string>
+    <string name="unfolded_grid_description">Dogo ühendab suurema ekraani täitmiseks kaks lehte paari</string>
+    <string name="search_provider_sponsored_description">%1$s ja Dogoil on tulu jagamise leping.\n\nOtsing %1$s abil aitab Dogoi toetada.</string>
+    <string name="quickswitch_ignored_warning">Neid sätteid eiratakse, kuna Dogo ei ole seatud viimaste rakenduste akna pakkujaks</string>
+</resources>

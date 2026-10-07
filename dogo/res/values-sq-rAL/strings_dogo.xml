@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for sq-rAL, mirroring
+     lawnchair/res/values-sq-rAL/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Menaxhuar nga Dogo</string>
+    <string name="accessibility_service_description">To perform certain actions when you use a gesture, such as locking your phone, Dogo requires accessibility access.\n\nDogo doesn\'t watch your actions, though all accessibility services require this privilege. Dogo discards any event sent by the system.\n\nTo lock your phone or open the Recents screen, Dogo uses the performGlobalAction accessibility service.</string>
+    <string name="debug_restart_launcher">Rifillo Dogo</string>
+    <string name="missing_usage_access_desc">To improve app suggestions, turn on usage access for <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">To access shortcuts and additional features, set Dogo as your default launcher</string>
+    <string name="onboarding_open_settings_title">Set up Dogo</string>
+    <string name="onboarding_major_upgrade_title">Meet the new Dogo</string>
+    <string name="onboarding_welcome">Welcome to Dogo!</string>
+    <string name="smartspace_widget_toggle_description">At a Glance can be added to the home screen with the Dogo widget</string>
+    <string name="dt2s_admin_hint">To put the device to sleep, set Dogo as a device admin app. Tap \"Open settings\", then tap \"Activate this device admin app.\"</string>
+    <string name="generic_a11y_hint">To %1$s, turn on the Dogo accessibility service. Tap \"Open settings\", choose \"Dogo\" and turn on \"Use Dogo.\"</string>
+    <string name="generic_a11y_disclaimer">Dogo uses Accessibility\'s `performGlobalAction` method to perform this action. This is a sensitive permission that allows monitoring other apps. However, Dogo is not configured for that functionality and receives no events.</string>
+    <string name="lawnchair_bug_report">Dogo bug report</string>
+    <string name="unfolded_grid_description">Dogo pairs two pages together to fill the larger display</string>
+    <string name="search_provider_sponsored_description">%1$s and Dogo have a revenue share agreement.\n\nSearching with %1$s helps support Dogo.</string>
+    <string name="quickswitch_ignored_warning">These settings will be ignored because Dogo isn\'t set as the Recents screen provider</string>
+</resources>

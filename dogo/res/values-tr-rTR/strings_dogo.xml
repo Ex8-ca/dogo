@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for tr-rTR, mirroring
+     lawnchair/res/values-tr-rTR/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Dogo tarafından yönetilmektedir</string>
+    <string name="accessibility_service_description">To perform certain actions when you use a gesture, such as locking your phone, Dogo requires accessibility access.\n\nDogo doesn\'t watch your actions, though all accessibility services require this privilege. Dogo discards any event sent by the system.\n\nTo lock your phone or open the Recents screen, Dogo uses the performGlobalAction accessibility service.</string>
+    <string name="debug_restart_launcher">Dogo\'i Yeniden Başlat</string>
+    <string name="missing_usage_access_desc">To improve app suggestions, turn on usage access for <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Kısayollar ve ek özellikler için Dogo\'ı varsayılan başlatıcınız yapın</string>
+    <string name="onboarding_open_settings_title">Set up Dogo</string>
+    <string name="onboarding_major_upgrade_title">Meet the new Dogo</string>
+    <string name="onboarding_welcome">Dogo\'e Hoş Geldiniz!</string>
+    <string name="smartspace_widget_toggle_description">At a Glance can be added to the home screen with the Dogo widget</string>
+    <string name="dt2s_admin_hint">Cihazı uyku moduna geçirmek için Dogo\'i cihaz yönetici uygulaması olarak ayarlayın. \"Ayarları aç\" seçeneğine ardından \"Bu cihaz yönetici uygulamasını etkinleştir\" seçeneğine dokunun.</string>
+    <string name="generic_a11y_hint">To %1$s, turn on the Dogo accessibility service. Tap \"Open settings\", choose \"Dogo\" and turn on \"Use Dogo.\"</string>
+    <string name="generic_a11y_disclaimer">Dogo bu işlemi gerçekleştirmek için Erişilebilirliğin `performGlobalAction` yöntemini kullanır. Bu, diğer uygulamaları izlemeye olanak tanıyan hassas bir izindir. Ancak Dogo bu işlev için yapılandırılmamıştır ve hiçbir olayı izlemez.</string>
+    <string name="lawnchair_bug_report">Dogo hata raporu</string>
+    <string name="unfolded_grid_description">Dogo, büyük ekranı doldurmak için iki sayfayı birleştirir</string>
+    <string name="search_provider_sponsored_description">Lawnchar\'ın %1$s ile sponsorluk anlaşması vardır\n\n %1$s ile arama yaparak Dogo\'a katkı sağlayabilirsiniz.</string>
+    <string name="quickswitch_ignored_warning">These settings will be ignored because Dogo isn\'t set as the Recents screen provider</string>
+</resources>

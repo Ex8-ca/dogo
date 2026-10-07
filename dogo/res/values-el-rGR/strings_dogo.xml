@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for el-rGR, mirroring
+     lawnchair/res/values-el-rGR/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Διαχειριζόμενο από τον εκκινητή Dogo</string>
+    <string name="accessibility_service_description">Για την εκτέλεση ορισμένων ενεργειών (όπως το κλείδωμα του τηλεφώνου σας) κατά την εκτέλεση μιας χειρονομίας, ο εκκινητής Dogo απαιτεί δικαιώματα προσβασιμότητας.\n\nΟ εκκινητής Dogo δεν παρακολουθεί καμία ενέργεια χρήστη, αν και το δικαίωμα αυτό απαιτείται για όλες τις υπηρεσίες προσβασιμότητας. Ο εκκινητής Dogo απορρίπτει οποιοδήποτε συμβάν αποστέλλεται από το σύστημα.\n\nΓια να κλειδώσετε το τηλέφωνό σας ή για να ανοίξετε την οθόνη Πρόσφατων εφαρμογών, ο εκκινητής Dogo χρησιμοποιεί την υπηρεσία προσβασιμότητας performGlobalAction.</string>
+    <string name="debug_restart_launcher">Επανεκκίνηση του Dogo</string>
+    <string name="missing_usage_access_desc">Για να βελτιώσετε τις προτάσεις εφαρμογών, ενεργοποιήστε την πρόσβαση χρήσης για <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Για να αποκτήσετε πρόσβαση σε συντομεύσεις και πρόσθετες δυνατότητες, ορίστε τον εκκινητή Dogo ως προεπιλεγμένο πρόγραμμα εκκίνησης</string>
+    <string name="onboarding_open_settings_title">Ρύθμιση του εκκινητή Dogo</string>
+    <string name="onboarding_major_upgrade_title">Γνωρίστε τον νέο εκκινητή Dogo</string>
+    <string name="onboarding_welcome">Καλώς ήρθατε στον εκκινητή Dogo!</string>
+    <string name="smartspace_widget_toggle_description">Το γραφικό στοιχείο “Με μια Ματιά” μπορεί να προστεθεί χειροκίνητα τοποθετώντας το γραφικό με ονομασία “Dogo”</string>
+    <string name="dt2s_admin_hint">Για να θέσετε τη συσκευή σε αναστολή λειτουργίας, ορίστε τον εκκινητήDogo ως εφαρμογή διαχειριστή συσκευής. Πατήστε \"Άνοιγμα ρυθμίσεων\" και, στη συνέχεια, πατήστε \"Ενεργοποίηση αυτής της εφαρμογής ως διαχειριστή συσκευής\".</string>
+    <string name="generic_a11y_hint">Για να %1$s, ενεργοποιήστε την υπηρεσία προσβασιμότητας του εκκινητή Dogo. Πατήστε \"Άνοιγμα ρυθμίσεων\", επιλέξτε \"Dogo\" και ενεργοποιήστε την επιλογή \"Χρήση Dogo\".</string>
+    <string name="generic_a11y_disclaimer">Ο εκκινητής Dogo χρησιμοποιεί τη μέθοδο `performGlobalAction` της Προσβασιμότητας Εφαρμογών για την εκτέλεση αυτής της ενέργειας. Πρόκειται για ένα ευαίσθητο δικαίωμα που επιτρέπει την παρακολούθηση άλλων εφαρμογών. Ωστόσο, ο εκκινητής Dogo δεν έχει ρυθμιστεί για αυτήν τη λειτουργικότητα και δεν λαμβάνει συμβάντα.</string>
+    <string name="lawnchair_bug_report">Αναφορά σφάλματος του Dogo</string>
+    <string name="unfolded_grid_description">Ο εκκινητής Dogo συνδυάζει δύο σελίδες αρχικής οθόνης για να γεμίσει τη μεγαλύτερη οθόνη συσκευής</string>
+    <string name="search_provider_sponsored_description">%1$s και ο εκκινητής Dogo έχουν συμφωνία μεριδίου εσόδων.\n\nΗ αναζήτηση μέσω του %1$s βοηθά στην υποστήριξη του Dogo.</string>
+    <string name="quickswitch_ignored_warning">Αυτές οι ρυθμίσεις θα αγνοηθούν, καθώς ο εκκινητής Dogo δεν έχει οριστεί ως πάροχος διαχείρισης Πρόσφατων εφαρμογών</string>
+</resources>

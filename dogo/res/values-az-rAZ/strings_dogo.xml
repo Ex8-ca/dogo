@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for az-rAZ, mirroring
+     lawnchair/res/values-az-rAZ/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Dogo tərəfindən idarə olunur</string>
+    <string name="accessibility_service_description">Telefonunuzu kilidləmək kimi bəzi əməliyyatları jestlər vasitəsilə yerinə yetirmək üçün Dogo əlçatanlıq girişinə ehtiyac duyur.\n\nBütün əlçatanlıq xidmətləri bu icazəni tələb etsə də, Dogo sizin fəaliyyətlərinizi izləmir. Dogo sistem tərəfindən göndərilən bütün hadisələri rədd edir.\n\nTelefonunuzu kilidləmək və ya Son Tətbiqlər ekranını açmaq üçün Dogo performGlobalAction əlçatanlıq xidmətindən istifadə edir.</string>
+    <string name="debug_restart_launcher">Dogo-i yenidən başlat</string>
+    <string name="missing_usage_access_desc">To improve app suggestions, turn on usage access for <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Qısayollardan və əlavə funksiyalardan istifadə etmək üçün Dogo-i standart başlatıcı kimi təyin edin</string>
+    <string name="onboarding_open_settings_title">Dogo-i qurun</string>
+    <string name="onboarding_major_upgrade_title">Yeni Dogo ilə tanış olun</string>
+    <string name="onboarding_welcome">Dogo-ə xoş gəlmisiniz!</string>
+    <string name="smartspace_widget_toggle_description">At a Glance Dogo vidceti vasitəsilə əsas ekrana əlavə edilə bilər</string>
+    <string name="dt2s_admin_hint">Cihazı yuxu rejiminə keçirmək üçün Dogo-i cihaz administratoru tətbiqi kimi təyin edin. \"Parametrləri aç\" seçiminə, sonra isə \"Bu cihaz administratoru tətbiqini aktivləşdir\" seçiminə toxunun.</string>
+    <string name="generic_a11y_hint">%1$s üçün Dogo əlçatanlıq xidmətini aktivləşdirin. \"Parametrləri aç\" seçiminə toxunun, \"Dogo\" seçin və \"Dogo-dən istifadə et\" funksiyasını aktivləşdirin.</string>
+    <string name="generic_a11y_disclaimer">Dogo bu əməliyyatı yerinə yetirmək üçün Accessibility xidmətinin `performGlobalAction` metodundan istifadə edir. Bu, digər tətbiqləri izləməyə imkan verən həssas bir icazədir. Bununla belə, Dogo bu funksionallıq üçün konfiqurasiya edilməyib və heç bir hadisə qəbul etmir.</string>
+    <string name="lawnchair_bug_report">Dogo xəta hesabatı</string>
+    <string name="unfolded_grid_description">Dogo böyük ekranı doldurmaq üçün iki səhifəni cütləşdirir</string>
+    <string name="search_provider_sponsored_description">%1$s və Dogo arasında gəlir paylaşımı razılaşması mövcuddur.\n\n%1$s vasitəsilə axtarış etmək Dogo-ə dəstək olmağa kömək edir.</string>
+    <string name="quickswitch_ignored_warning">Dogo Son tətbiqlər ekranı provayderi kimi təyin edilmədiyi üçün bu parametrlər nəzərə alınmayacaq</string>
+</resources>

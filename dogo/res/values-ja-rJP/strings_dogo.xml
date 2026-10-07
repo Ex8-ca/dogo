@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for ja-rJP, mirroring
+     lawnchair/res/values-ja-rJP/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Dogo に管理されています</string>
+    <string name="accessibility_service_description">ジェスチャー操作時に特定の操作、例えばスマートフォンのロックなどをするにはDogoにユーザー補助機能へのアクセスを許可する必要があります。\n\nDogoはユーザーの操作を監視しませんが、全てのユーザー補助機能にはこの機能を要求します。Dogoはシステムから送信された全てのイベントを削除します。\n\nDogoはスマートフォンをロックしたり、最近使ったアプリを管理したりするために、performGlobalActionユーザー補助機能を使用します。</string>
+    <string name="debug_restart_launcher">Dogo を再起動</string>
+    <string name="missing_usage_access_desc">アプリの提案を改善するには、 <xliff:g id="name" example="Dogo">%1$s</xliff:g> の使用状況へのアクセスをオンにしてください</string>
+    <string name="set_default_launcher_tip">ショートカットと追加機能にアクセスするには、Dogo をデフォルトのランチャーとして設定してください。</string>
+    <string name="onboarding_open_settings_title">Dogoをセットアップする</string>
+    <string name="onboarding_major_upgrade_title">新しいDogoを使おう</string>
+    <string name="onboarding_welcome">Dogo へようこそ！</string>
+    <string name="smartspace_widget_toggle_description">Dogo ウィジェットで At a Glance を追加できます</string>
+    <string name="dt2s_admin_hint">端末をスリープ状態にするには、Dogo をデバイス管理アプリに設定する必要があります。「設定を開く」をタップし、「このデバイス管理アプリを有効にする」をタップしてください。</string>
+    <string name="generic_a11y_hint">%1$s を行うには、Dogo のユーザー補助サービスを有効にしてください。「設定を開く」をタップし、「Dogo」を選択して「Dogo の使用」をオンにしてください。</string>
+    <string name="generic_a11y_disclaimer">Dogo はこの操作を実行するために、ユーザー補助の performGlobalAction メソッドを使用します。これは他のアプリの監視を許可する機密性の高い権限ですが、Dogo にはその機能は実装されておらず、いかなるイベントも受信しません。</string>
+    <string name="lawnchair_bug_report">Dogo のバグレポート</string>
+    <string name="unfolded_grid_description">Dogoは２つのページを使い大きなディスプレイに対応させます</string>
+    <string name="search_provider_sponsored_description">%1$s と Dogo は収益分配契約を持っています。\n\n %1$s で検索するとDogo をサポートすることができます。</string>
+    <string name="quickswitch_ignored_warning">Dogoが最近使ったアプリを表示するプロバイダーとして設定されていないため、これらの機能は無視されます</string>
+</resources>

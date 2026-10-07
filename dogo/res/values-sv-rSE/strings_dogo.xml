@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for sv-rSE, mirroring
+     lawnchair/res/values-sv-rSE/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Hanteras av Dogo</string>
+    <string name="accessibility_service_description">För att utföra vissa åtgärder när du använder en gest, som att låsa din telefon, kräver Dogo tillgänglighetsåtkomst.\n\nDogo övervakar inte dina handlingar, men alla tillgänglighetstjänster kräver denna behörighet. Dogo ignorerar alla händelser som skickas av systemet.\n\nFör att låsa din telefon eller öppna skärmen Senaste använder Dogo tillgänglighetstjänsten performGlobalAction.</string>
+    <string name="debug_restart_launcher">Starta om Dogo</string>
+    <string name="missing_usage_access_desc">To improve app suggestions, turn on usage access for <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">För att komma åt genvägar och ytterligare funktioner, ange Dogo som din förvalda startskärmsapp</string>
+    <string name="onboarding_open_settings_title">Set up Dogo</string>
+    <string name="onboarding_major_upgrade_title">Meet the new Dogo</string>
+    <string name="onboarding_welcome">Welcome to Dogo!</string>
+    <string name="smartspace_widget_toggle_description">At a Glance can be added to the home screen with the Dogo widget</string>
+    <string name="dt2s_admin_hint">To put the device to sleep, set Dogo as a device admin app. Tap \"Open settings\", then tap \"Activate this device admin app.\"</string>
+    <string name="generic_a11y_hint">To %1$s, turn on the Dogo accessibility service. Tap \"Open settings\", choose \"Dogo\" and turn on \"Use Dogo.\"</string>
+    <string name="generic_a11y_disclaimer">Dogo uses Accessibility\'s `performGlobalAction` method to perform this action. This is a sensitive permission that allows monitoring other apps. However, Dogo is not configured for that functionality and receives no events.</string>
+    <string name="lawnchair_bug_report">Buggrapport för Dogo</string>
+    <string name="unfolded_grid_description">Dogo pairs two pages together to fill the larger display</string>
+    <string name="search_provider_sponsored_description">%1$s och Dogo har ett avtal om intäktsdelning.\n\nSökning med %1$s hjälper till att stödja Dogo.</string>
+    <string name="quickswitch_ignored_warning">These settings will be ignored because Dogo isn\'t set as the Recents screen provider</string>
+</resources>

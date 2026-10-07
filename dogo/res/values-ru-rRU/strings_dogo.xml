@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for ru-rRU, mirroring
+     lawnchair/res/values-ru-rRU/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Управляется Dogo</string>
+    <string name="accessibility_service_description">Для выполнения определённых действий (например, блокировки телефона) с помощью жестов, Dogo требуется доступ к спец. возможностям.\n\nDogo не отслеживает действий пользователя, хотя это требуется для всех служб спец. возможностей. Dogo не учитывает любые системные события.\n\nЧтобы заблокировать телефон или открыть Экран недавних приложений, Dogo использует службу спец. возможностей PerformGlobalAction.</string>
+    <string name="debug_restart_launcher">Перезапустить Dogo</string>
+    <string name="missing_usage_access_desc">To improve app suggestions, turn on usage access for <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Для доступа к ярлыкам и доп. функциям, установите Dogo в качестве лаунчера по умолчанию</string>
+    <string name="onboarding_open_settings_title">Настройка Dogo</string>
+    <string name="onboarding_major_upgrade_title">Встречайте новый Dogo</string>
+    <string name="onboarding_welcome">Добро пожаловать в Dogo!</string>
+    <string name="smartspace_widget_toggle_description">Данные виджета \"Самое главное\" можно добавить на глав. экран вручную с помощью виджета \"Dogo\"</string>
+    <string name="dt2s_admin_hint">Что бы выключить экран устройства, установите Dogo как администратор устройства. Нажмите \"Открыть настройки\", затем нажмите \"Установить этого администратора устройства\"</string>
+    <string name="generic_a11y_hint">Чтобы использовать функционал \" %1$s \", включите Dogo в меню спец. возможностей. Для этого откройте Настройки, затем выберите \"Dogo\" и нажмите \"Использовать Dogo\".</string>
+    <string name="generic_a11y_disclaimer">Dogo использует метод спец. возможностей «performGlobalAction» для выполнения этого действия. Это чувствительное разрешение, позволяющее отслеживать другие приложения. Однако, Dogo не настроен на такой мониторинг и не регистрирует никакие события.</string>
+    <string name="lawnchair_bug_report">Отчет об ошибках Dogo</string>
+    <string name="unfolded_grid_description">Dogo объединяет две страницы вместе для заполнения дисплея большего размера</string>
+    <string name="search_provider_sponsored_description">%1$s и Dogo имеют соглашение о разделе доходов.\n\nПоиск с помощью %1$s помогает поддерживать Dogo.</string>
+    <string name="quickswitch_ignored_warning">Эти настройки будут проигнорированы, так как Dogo не установлен в качестве провайдера Экрана недавних приложений</string>
+</resources>

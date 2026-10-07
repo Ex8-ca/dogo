@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for pt-rBR, mirroring
+     lawnchair/res/values-pt-rBR/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Gerenciado por Dogo</string>
+    <string name="accessibility_service_description">Para fazer certas ações com gestos, como bloquear o seu dispositivo, Dogo necessito de acesso à acessibilidade. \n\nDogo não vigia as suas ações, porém todos os serviços relacionados à acessibilidade precisam desse privilégio. Dogo descarta todos os eventos enviados pelo sistema.\n\nPara bloquear o seu dispositivo ou abrir a tela de recentes, Dogo usa o serviço de acessibilidade chamado \"performGlobalAction.\"</string>
+    <string name="debug_restart_launcher">Reiniciar o Dogo</string>
+    <string name="missing_usage_access_desc">Para aprimorar as sugestões de aplicativo, ative o acesso ao uso para <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>
+    <string name="set_default_launcher_tip">Para acessar atalhos e recursos adicionais, configure o Dogo como sua launcher padrão</string>
+    <string name="onboarding_open_settings_title">Fazer o Set Up do Dogo</string>
+    <string name="onboarding_major_upgrade_title">Conheça o novo Dogo</string>
+    <string name="onboarding_welcome">Boas-vindas ao Dogo!</string>
+    <string name="smartspace_widget_toggle_description">At a Glance pode ser adicionado á tela inicial com o widget do Dogo</string>
+    <string name="dt2s_admin_hint">Para colocar o dispositivo para dormir, coloque Dogo como um app administrador. Clique \"Abra configurações\", depois clique \"Ative este aplicativo de administrador do dispositivo\".</string>
+    <string name="generic_a11y_hint">Para %1$s ative os serviços de acessibilidade do Dogo. Toque em \"Abrir configurações\", escolha \"Dogo\" e ative a opção \"Usar Dogo.\"</string>
+    <string name="generic_a11y_disclaimer">Dogo usa o método de acessibilidade `performGlobalAction` para executar essa ação. Essa é uma permissão sensível que permite o monitoramento de outros apps. No entanto Dogo não é configurado para essa funcionalidade e não recebe nenhum evento.</string>
+    <string name="lawnchair_bug_report">Relatório de bugs do Dogo</string>
+    <string name="unfolded_grid_description">Dogo agrupa duas páginas para preencher um display mais largo</string>
+    <string name="search_provider_sponsored_description">%1$s e Dogo têm um acordo de participação na receita.\n\nPesquisar usando %1$s ajuda a apoiar o Dogo.</string>
+    <string name="quickswitch_ignored_warning">Estas opções serão ignoradas porque Dogo não está configurado como o provedor da tela de aplicativos recentes</string>
+</resources>

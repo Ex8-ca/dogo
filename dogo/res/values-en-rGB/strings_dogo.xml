@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated Dogo brand overrides for en-rGB, mirroring
+     lawnchair/res/values-en-rGB/strings.xml. -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="managed_by_lawnchair">Managed by Dogo</string>
+    <string name="accessibility_service_description">To lock your phone when performing a gesture, and to open Recents via gesture, Dogo requires accessibility access.\n\nDogo doesn\'t watch any user action, though the privilege to do so is required for all accessibility services. Dogo discards any event sent by the system.\n\nIn order to lock your phone, or to open Recents, Dogo uses the performGlobalAction Accessibility service.</string>
+    <string name="debug_restart_launcher">Restart Dogo</string>
+    <string name="set_default_launcher_tip">To access shortcuts and additional features, set Dogo as your default launcher</string>
+    <string name="smartspace_widget_toggle_description">At a Glance can be manually added to the home screen by placing the Dogo widget</string>
+    <string name="dt2s_admin_hint">To use Double-Tap to Sleep, set Dogo as a device admin app. Tap \"Open settings\", then tap \"Activate this device admin app.\"</string>
+    <string name="lawnchair_bug_report">Dogo bug report</string>
+    <string name="search_provider_sponsored_description">%1$s and Dogo have a revenue share agreement.\n\nSearching with %1$s helps support Dogo.</string>
+    <string name="quickswitch_ignored_warning">These settings will be ignored as Dogo isn\'t set as the Recents provider</string>
+</resources>

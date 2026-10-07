@@ -55,6 +55,40 @@ this project's `minSdk 26`.
    `app.dogo.launcher.debug/app.lawnchair.LawnchairLauncher` and
    `app.lawnchair.debug/app.lawnchair.LawnchairLauncher`.
 
+## User-facing strings: `dogo/res/values-*/strings_dogo.xml`
+
+The 19 user-facing strings that name Lawnchair are overridden per locale.
+
+Two things about this are easy to get wrong:
+
+- **These live on the `lawnWithQuickstepDogo` source set, not the `dogo`
+  flavour.** Putting the same `res.srcDir` on the `dogo` flavour compiles and
+  merges fine, but the `app` dimension (lawn) outranks `channel` for resource
+  conflicts, so every override silently loses to
+  `lawnchair/res/values/strings.xml`. The APK then still says Lawnchair.
+
+- **Overriding only the default `values/` is not enough.** Android picks the
+  best-matching locale, and the launcher ships ~140 translated `values-*/`
+  directories. A Pixel set to `en-CA` resolves
+  `lawnchair/res/values-en-rCA/strings.xml`, which still said
+  "Welcome to Lawnchair!" even though the default had been overridden and the
+  packaged default resource correctly read "Welcome to Dogo!".
+
+  Hence one generated override file per locale (62 of them, 919 strings). The
+  brand stays in Latin script in the non-Latin translations, e.g. Simplified
+  Chinese `由 Lawnchair 管理`, so a literal word substitution is correct.
+
+`search_provider_sponsored_description` is the one string **rewritten** rather
+than substituted: the upstream text asserts a revenue-share agreement, which
+would be false for Dogo. The translated variants keep their upstream wording, so
+this one still needs attention before a Dogo release.
+
+Regenerate after changing the upstream strings:
+
+```sh
+# see the generator notes in dogo/res/values/strings_dogo.xml
+```
+
 ## Verifying a rebrand
 
 The build succeeding proves nothing — both bugs above produced green builds.
