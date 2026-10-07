@@ -19,6 +19,9 @@ junitVersion = "4.13.2"
 mockito = "5.24.0"
 mockitoKotlin = "6.4.0"
 truth = "1.4.5"
+# 4.17 is the first release shipping an android-all for SDK 17 (API 37),
+# which is what dogo/ compiles against.
+robolectric = "4.17"
 testRules = "1.7.0"
 testRunner = "1.7.0"
 
@@ -149,6 +152,8 @@ androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterfa
 
 # Testing (Merged)
 google-truth = { group = "com.google.truth", name = "truth", version.ref = "truth" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+androidx-test-core = "androidx.test:core:1.7.0"
 junit = { group = "junit", name = "junit", version.ref = "junitVersion" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
 mockito-robolectric = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }

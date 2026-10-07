@@ -248,6 +248,18 @@ android {
         coreLibraryDesugaringEnabled true
     }
 
+    testOptions {
+        unitTests {
+            // Dogo: unit tests need real merged resources/manifest (Robolectric,
+            // and any test that reads R.string / R.id).
+            // NOTE: this is a Groovy build script, so the property is spelled
+            // `includeAndroidResources` — the `isIncludeAndroidResources`
+            // spelling used in build.gradle.kts modules does not resolve here.
+            includeAndroidResources = true
+            returnDefaultValues = true
+        }
+    }
+
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
@@ -292,8 +304,8 @@ android {
             res.srcDirs = ['res']
 
             // Lawnchair-TODO: Don't include Compose Disabled, but there's has to be another way of making this NOT long
-            java.srcDirs = ['src', 'src_plugins', 'compose/facade/core', 'compose/facade/enabled', 'compose/features']
-            kotlin.directories.addAll('src', 'src_plugins', 'compose/facade/core', 'compose/facade/enabled', 'compose/features')
+            java.srcDirs = ['src', 'src_plugins', 'compose/facade/core', 'compose/facade/enabled', 'compose/features', 'dogo/src']
+            kotlin.directories.addAll('src', 'src_plugins', 'compose/facade/core', 'compose/facade/enabled', 'compose/features', 'dogo/src')
 
             manifest.srcFile 'AndroidManifest-common.xml'
             proto {
@@ -341,6 +353,22 @@ android {
             java.srcDirs = ['quickstep/src', 'quickstep/dagger', 'quickstep/recents_ui_overrides/src', 'quickstep/src_protolog']
             kotlin.directories.addAll('quickstep/src', 'quickstep/dagger', 'quickstep/recents_ui_overrides/src', 'quickstep/src_protolog')
             manifest.srcFile "quickstep/AndroidManifest.xml"
+        }
+
+        // Dogo: JVM unit tests. Deliberately NOT `src/test/java` — the main
+        // source set above uses the whole `src` directory as a source root, so a
+        // nested `src/test` would be swept into the production compilation.
+        test {
+            java.srcDirs = ['dogo/tests']
+            kotlin.directories.addAll('dogo/tests')
+            resources.srcDirs = ['dogo/tests/resources']
+        }
+
+        // Dogo: on-device instrumentation tests.
+        androidTest {
+            java.srcDirs = ['dogo/androidTest']
+            kotlin.directories.addAll('dogo/androidTest')
+            resources.srcDirs = ['dogo/androidTest/resources']
         }
     }
 }
@@ -498,6 +526,20 @@ dependencies {
 
     debugImplementation libs.leakcanary.android
     debugImplementation libs.leakcanary.androidstudio
+
+    // Dogo: unit tests for the app module.
+    // The app module is the *root* Gradle project, so these apply to it directly.
+    // `src/test/java` is AGP's default unit-test source dir and is left unset on
+    // purpose so the standard layout works.
+    testImplementation libs.junit
+    testImplementation libs.google.truth
+    testImplementation libs.robolectric
+    testImplementation libs.androidx.junit
+    testImplementation libs.androidx.test.core
+    testImplementation libs.androidx.test.runner
+    testImplementation libs.kotlinx.coroutines.test
+
+    testRuntimeOnly libs.junit
 }
 
 ksp {
