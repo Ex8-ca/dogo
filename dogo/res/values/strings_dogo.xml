@@ -29,4 +29,10 @@
     <string name="unfolded_grid_description">Dogo pairs two pages together to fill the larger display</string>
     <string name="search_provider_sponsored_description">Searching with %1$s helps support Dogo.</string>
     <string name="quickswitch_ignored_warning">These settings will be ignored because Dogo isn\'t set as the Recents screen provider</string>
+
+    <string name="dogo_setup_label">Dogo Setup</string>
+    <string name="dogo_setup_description">Set up your phone by chatting with Dogo</string>
+    <string name="dogo_options_label">Dogo Options</string>
+    <string name="dogo_options_description">Model, runtime and what the agent may change</string>
+
 </resources>

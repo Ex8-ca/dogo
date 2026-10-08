@@ -281,17 +281,22 @@ android {
         github {
             applicationId 'app.lawnchair'
             dimension "channel"
+            // The About screen checks the upstream LawnchairLauncher/lawnchair
+            // releases and renders their commit messages as the changelog.
+            buildConfigField "boolean", "SHOW_UPSTREAM_UPDATE_CHECK", "true"
         }
 
         nightly {
             applicationId 'app.lawnchair.nightly'
             dimension "channel"
+            buildConfigField "boolean", "SHOW_UPSTREAM_UPDATE_CHECK", "true"
         }
 
         play {
             applicationId "app.lawnchair.play"
             dimension "channel"
             isDefault true
+            buildConfigField "boolean", "SHOW_UPSTREAM_UPDATE_CHECK", "true"
         }
 
         // Dogo's own distribution channel. Distinct applicationId so Dogo
@@ -300,6 +305,11 @@ android {
         dogo {
             applicationId 'app.dogo.launcher'
             dimension "channel"
+            // Off: the update check reads the *upstream* Lawnchair releases from
+            // GitHub and shows their commit messages ("a first look at Lawnchair
+            // 16"), which is both wrong branding and a wrong update target for a
+            // fork. It is network-fetched, so no resource override can hide it.
+            buildConfigField "boolean", "SHOW_UPSTREAM_UPDATE_CHECK", "false"
         }
 
         configureEach {

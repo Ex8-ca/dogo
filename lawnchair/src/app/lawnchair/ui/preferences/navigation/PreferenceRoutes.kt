@@ -97,6 +97,15 @@ data object About : PreferenceRootRoute, PreferenceDeepLink {
     override val deepLink = "$URI/about"
 }
 
+/**
+ * Dogo's conversational setup assistant. Present only on the dogo channel;
+ * the upstream channels have no AI layer and no entry point to it.
+ */
+@Serializable
+data object DogoSetup : PreferenceRootRoute, PreferenceDeepLink {
+    override val deepLink = "$URI/dogo-setup"
+}
+
 @Serializable
 data object ExperimentalFeatures : PreferenceRootRoute, PreferenceDeepLink {
     override val deepLink = "$URI/experimental-features"

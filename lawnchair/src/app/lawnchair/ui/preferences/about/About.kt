@@ -162,24 +162,30 @@ fun About(
             Spacer(modifier = Modifier.height(8.dp))
         }
         item {
-            UpdateSection(
-                updateState = uiState.updateState,
-                onInstall = {
-                    viewModel.installUpdate(it)
-                },
-                onForceInstall = {
-                    viewModel.installUpdate(it, forceInstall = true)
-                },
-                onViewChanges = {
-                    openBottomSheet = true
-                    scope.launch {
-                        sheetState.show()
-                    }
-                },
-                onDismissMajorUpdate = {
-                    viewModel.resetToDownloaded(it)
-                },
-            )
+            // The update section renders the *upstream* LawnchairLauncher/lawnchair
+            // release notes, fetched from GitHub. For the dogo channel that is the
+            // wrong brand and the wrong update target, so the whole section is
+            // suppressed rather than rebranded.
+            if (BuildConfig.SHOW_UPSTREAM_UPDATE_CHECK) {
+                UpdateSection(
+                    updateState = uiState.updateState,
+                    onInstall = {
+                        viewModel.installUpdate(it)
+                    },
+                    onForceInstall = {
+                        viewModel.installUpdate(it, forceInstall = true)
+                    },
+                    onViewChanges = {
+                        openBottomSheet = true
+                        scope.launch {
+                            sheetState.show()
+                        }
+                    },
+                    onDismissMajorUpdate = {
+                        viewModel.resetToDownloaded(it)
+                    },
+                )
+            }
         }
         item {
             Spacer(modifier = Modifier.requiredHeight(16.dp))

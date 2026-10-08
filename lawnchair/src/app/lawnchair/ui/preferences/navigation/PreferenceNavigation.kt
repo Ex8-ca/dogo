@@ -13,6 +13,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
+import app.dogo.launcher.ui.setup.DogoSetupScreen
 import app.lawnchair.backup.ui.CreateBackupScreen
 import app.lawnchair.backup.ui.restoreBackupGraph
 import app.lawnchair.backup.ui.restoreNovaBackupGraph
@@ -55,6 +56,7 @@ import app.lawnchair.ui.preferences.destinations.SelectAppsForDrawerFolder
 import app.lawnchair.ui.preferences.destinations.SelectIconPreference
 import app.lawnchair.ui.preferences.destinations.ShapePreference
 import app.lawnchair.ui.preferences.destinations.SmartspacePreferences
+import com.android.launcher3.BuildConfig
 import com.android.launcher3.util.ComponentKey
 import soup.compose.material.motion.animation.materialSharedAxisXIn
 import soup.compose.material.motion.animation.materialSharedAxisXOut
@@ -204,6 +206,14 @@ fun PreferenceNavigation(
         composable<AboutLicenses>(
             deepLinks = getDeepLink(AboutLicenses),
         ) { Acknowledgements() }
+
+        // Dogo's AI setup assistant. Only reachable on the dogo channel; the
+        // other channels have no AI layer to open.
+        if (BuildConfig.SHOW_UPSTREAM_UPDATE_CHECK.not()) {
+            composable<DogoSetup>(
+                deepLinks = getDeepLink(DogoSetup),
+            ) { DogoSetupScreen() }
+        }
 
         composable<DebugMenu> { DebugMenuPreferences() }
         composable<FeatureFlags> { FeatureFlagsPreference() }

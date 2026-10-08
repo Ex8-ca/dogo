@@ -76,6 +76,7 @@ import app.lawnchair.ui.preferences.navigation.AppDrawer
 import app.lawnchair.ui.preferences.navigation.BackupAndRestore
 import app.lawnchair.ui.preferences.navigation.DebugMenu
 import app.lawnchair.ui.preferences.navigation.Dock
+import app.lawnchair.ui.preferences.navigation.DogoSetup
 import app.lawnchair.ui.preferences.navigation.ExperimentalFeatures
 import app.lawnchair.ui.preferences.navigation.Folders
 import app.lawnchair.ui.preferences.navigation.General
@@ -117,7 +118,13 @@ fun PreferencesDashboard(
         backArrowVisible = false,
         actions = { PreferencesOverflowMenu(currentRoute = currentRoute, onNavigate = onNavigate) },
     ) {
-        AnnouncementPreference()
+        // Announcement cards are fetched from https://lawnchair.app/ at runtime,
+        // so their text ("a first look at Lawnchair 16") cannot be rebranded by
+        // any resource override. The dogo channel has no Dogo endpoint to fetch
+        // from, so the banner is suppressed rather than shown stale.
+        if (BuildConfig.SHOW_UPSTREAM_UPDATE_CHECK) {
+            AnnouncementPreference()
+        }
 
         if (BuildConfig.APPLICATION_ID.contains("nightly") || BuildConfig.DEBUG) {
             PreferencesDebugWarning()
@@ -219,6 +226,20 @@ fun PreferencesDashboard(
                 onNavigate = { onNavigate(BackupAndRestore) },
                 isSelected = currentRoute is BackupAndRestore,
             )
+
+            // Dogo's AI. Present only on the dogo channel, which is the only one
+            // that has an AI layer behind it.
+            if (!BuildConfig.SHOW_UPSTREAM_UPDATE_CHECK) {
+                PreferenceCategory(
+                    label = stringResource(com.android.launcher3.R.string.dogo_setup_label),
+                    description = stringResource(
+                        com.android.launcher3.R.string.dogo_setup_description,
+                    ),
+                    iconResource = R.drawable.ic_lightbulb,
+                    onNavigate = { onNavigate(DogoSetup) },
+                    isSelected = currentRoute is DogoSetup,
+                )
+            }
 
             PreferenceCategory(
                 label = stringResource(R.string.about_label),
