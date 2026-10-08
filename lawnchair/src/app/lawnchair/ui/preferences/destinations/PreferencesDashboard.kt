@@ -76,6 +76,7 @@ import app.lawnchair.ui.preferences.navigation.AppDrawer
 import app.lawnchair.ui.preferences.navigation.BackupAndRestore
 import app.lawnchair.ui.preferences.navigation.DebugMenu
 import app.lawnchair.ui.preferences.navigation.Dock
+import app.lawnchair.ui.preferences.navigation.DogoOptions
 import app.lawnchair.ui.preferences.navigation.DogoSetup
 import app.lawnchair.ui.preferences.navigation.ExperimentalFeatures
 import app.lawnchair.ui.preferences.navigation.Folders
@@ -238,6 +239,15 @@ fun PreferencesDashboard(
                     iconResource = R.drawable.ic_lightbulb,
                     onNavigate = { onNavigate(DogoSetup) },
                     isSelected = currentRoute is DogoSetup,
+                )
+                PreferenceCategory(
+                    label = stringResource(com.android.launcher3.R.string.dogo_options_label),
+                    description = stringResource(
+                        com.android.launcher3.R.string.dogo_options_description,
+                    ),
+                    iconResource = R.drawable.ic_about,
+                    onNavigate = { onNavigate(DogoOptions) },
+                    isSelected = currentRoute is DogoOptions,
                 )
             }
 

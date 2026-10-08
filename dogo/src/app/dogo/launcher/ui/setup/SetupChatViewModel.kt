@@ -42,11 +42,25 @@ class SetupChatViewModel(
 
     private val history = mutableListOf<Pair<String, String>>()
     private val runner = ModelRunner.forContext(application)
+    private val optionsStore = app.dogo.launcher.ui.options.OptionsStore(application)
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {
         refreshModelState()
+        // If the user already picked (and downloaded) a model in Dogo Options,
+        // load it so the chat is usable the moment it is opened.
+        autoLoadSelectedModel()
+    }
+
+    private fun autoLoadSelectedModel() {
+        val options = optionsStore.load()
+        if (options.runtime == app.dogo.launcher.agent.AgentOptions.Runtime.CLOUD) return
+        val recommendation = app.dogo.launcher.llm.HardwareProfile.fromDevice(getApplication())
+        val variant = options.resolveModel(recommendation) ?: return
+        if (runner.isAvailable(variant)) {
+            loadModel(variant)
+        }
     }
 
     private fun refreshModelState() {

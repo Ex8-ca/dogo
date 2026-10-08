@@ -106,6 +106,12 @@ data object DogoSetup : PreferenceRootRoute, PreferenceDeepLink {
     override val deepLink = "$URI/dogo-setup"
 }
 
+/** Model, runtime and permission choices for the setup agent. dogo channel only. */
+@Serializable
+data object DogoOptions : PreferenceRootRoute, PreferenceDeepLink {
+    override val deepLink = "$URI/dogo-options"
+}
+
 @Serializable
 data object ExperimentalFeatures : PreferenceRootRoute, PreferenceDeepLink {
     override val deepLink = "$URI/experimental-features"

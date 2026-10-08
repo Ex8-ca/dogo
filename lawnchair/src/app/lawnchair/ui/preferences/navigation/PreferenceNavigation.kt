@@ -13,6 +13,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
+import app.dogo.launcher.ui.options.DogoOptionsScreen
 import app.dogo.launcher.ui.setup.DogoSetupScreen
 import app.lawnchair.backup.ui.CreateBackupScreen
 import app.lawnchair.backup.ui.restoreBackupGraph
@@ -213,6 +214,9 @@ fun PreferenceNavigation(
             composable<DogoSetup>(
                 deepLinks = getDeepLink(DogoSetup),
             ) { DogoSetupScreen() }
+            composable<DogoOptions>(
+                deepLinks = getDeepLink(DogoOptions),
+            ) { DogoOptionsScreen() }
         }
 
         composable<DebugMenu> { DebugMenuPreferences() }
