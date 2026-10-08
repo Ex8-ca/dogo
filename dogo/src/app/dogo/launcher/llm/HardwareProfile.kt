@@ -21,7 +21,22 @@ object HardwareProfile {
         /** True when [primary] is null and the user needs the cloud tier. */
         val cloudOnly: Boolean,
         val rationale: String,
+        /** RAM the recommendation was computed from, so callers can re-check a
+         *  user's own pick against the same numbers. */
+        val ramGb: Int,
+        /** Free storage the recommendation was computed from. */
+        val freeStorageGb: Int,
     )
+
+    /**
+     * Whether [variant] can run on a device with [ramGb] of RAM and
+     * [freeStorageGb] free.
+     *
+     * Public so that a model the user picked by hand is held to exactly the
+     * same bar as one this class picked.
+     */
+    fun fits(variant: ModelCatalog.ModelVariant, ramGb: Int, freeStorageGb: Int): Boolean = variant.minRamGb <= ramGb &&
+        ModelCatalog.requiredStorageBytes(variant) <= freeStorageGb.toLong() * ModelCatalog.BYTES_PER_GB
 
     /**
      * Picks a model for a device reporting [ramGb] of RAM and [freeStorageGb] free.
@@ -32,11 +47,8 @@ object HardwareProfile {
      * promoting to the largest model.
      */
     fun recommendModel(ramGb: Int, freeStorageGb: Int, hasNpu: Boolean = false): Recommendation {
-        val usableBytes = freeStorageGb.toLong() * ModelCatalog.BYTES_PER_GB
-
         val fit = ModelCatalog.variants()
-            .filter { it.minRamGb <= ramGb }
-            .filter { ModelCatalog.requiredStorageBytes(it) <= usableBytes }
+            .filter { fits(it, ramGb, freeStorageGb) }
             .maxByOrNull { it.sizeBytes }
 
         return when {
@@ -45,6 +57,8 @@ object HardwareProfile {
                 cloudOnly = false,
                 rationale = "This device has room for ${fit.displayName} " +
                     "(${"%.1f".format(fit.sizeGb)} GB).",
+                ramGb = ramGb,
+                freeStorageGb = freeStorageGb,
             )
 
             ramGb < ModelCatalog.variants().minOf { it.minRamGb } -> Recommendation(
@@ -53,6 +67,8 @@ object HardwareProfile {
                 rationale = "This device has $ramGb GB of RAM, which is below the " +
                     "${ModelCatalog.variants().minOf { it.minRamGb }} GB needed to run a model " +
                     "on-device. Setup will use the cloud tier instead.",
+                ramGb = ramGb,
+                freeStorageGb = freeStorageGb,
             )
 
             else -> Recommendation(
@@ -62,6 +78,8 @@ object HardwareProfile {
                     "${ModelCatalog.variants().minOf { ModelCatalog.requiredStorageGb(it) }} GB of " +
                     "free storage to run a model on-device, but only $freeStorageGb GB is free. " +
                     "Free up space, or use the cloud tier.",
+                ramGb = ramGb,
+                freeStorageGb = freeStorageGb,
             )
         }
     }
