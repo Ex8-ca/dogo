@@ -15,7 +15,14 @@ import org.json.JSONObject
  */
 sealed class Action {
 
+    /** Dogo's own light/dark theme. Needs no special access. */
     data class SetTheme(val theme: String) : Action()
+
+    /**
+     * The whole phone's dark mode (Settings > Display). Needs Shizuku, root or
+     * system access; plain apps can't change it.
+     */
+    data class SetSystemDarkMode(val enabled: Boolean) : Action()
 
     data class SetWallpaper(val color: String) : Action()
 
@@ -100,6 +107,18 @@ object ActionExecutor {
         return when (name) {
             "set_theme" -> Action.SetTheme(params.optString("theme"))
 
+            "set_system_dark_mode" -> {
+                // Require an explicit boolean; guessing would flip the phone.
+                if (!params.has("enabled")) return Action.Unknown
+                val raw = params.opt("enabled")
+                val enabled = when (raw) {
+                    is Boolean -> raw
+                    is String -> raw.toBooleanStrictOrNull() ?: return Action.Unknown
+                    else -> return Action.Unknown
+                }
+                Action.SetSystemDarkMode(enabled)
+            }
+
             "set_wallpaper" -> Action.SetWallpaper(params.optString("color"))
 
             "add_to_home" -> Action.AddToHome(params.optString("package"))
@@ -182,6 +201,9 @@ object ActionExecutor {
     fun toJson(action: Action): String = when (action) {
         is Action.SetTheme ->
             """{"action":"set_theme","params":{"theme":${quote(action.theme)}}}"""
+
+        is Action.SetSystemDarkMode ->
+            """{"action":"set_system_dark_mode","params":{"enabled":${action.enabled}}}"""
 
         is Action.SetWallpaper ->
             """{"action":"set_wallpaper","params":{"color":${quote(action.color)}}}"""

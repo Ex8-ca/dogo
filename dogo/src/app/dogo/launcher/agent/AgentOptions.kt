@@ -35,7 +35,7 @@ data class AgentOptions(
      * does not fit the phone it was installed on.
      */
     val modelId: String? = null,
-    /** Effort spent per turn. Not yet sent to remote agents. */
+    /** Effort spent per turn, sent to remote agents that support it. */
     val thinkingLevel: ThinkingLevel = ThinkingLevel.DEFAULT,
     /** Which actions the agent may perform without asking. */
     val allowedActions: Set<ActionType> = ActionType.entries.toSet(),
@@ -58,10 +58,10 @@ data class AgentOptions(
 
     fun withConfig(preset: AgentPreset, config: AgentConfig): AgentOptions = copy(agentConfigs = agentConfigs + (preset.id to config))
 
-    enum class ThinkingLevel(val wireName: String, val blurb: String) {
-        LOW("low", "Quick answers, more battery left over."),
-        DEFAULT("default", "Balanced. Use this unless you have a reason not to."),
-        HIGH("high", "Thinks longer. Slower, and a little better at fiddly tasks."),
+    enum class ThinkingLevel(val wireName: String, val blurb: String, val effort: String?) {
+        LOW("low", "Quick answers, more battery left over.", "low"),
+        DEFAULT("default", "Balanced. Use this unless you have a reason not to.", null),
+        HIGH("high", "Thinks longer. Slower, and a little better at fiddly tasks.", "high"),
         ;
 
         companion object {
@@ -79,8 +79,13 @@ data class AgentOptions(
     ) {
         SET_THEME(
             "set_theme",
-            "Change the theme",
-            "Light or dark, and the accent colour.",
+            "Change Dogo's theme",
+            "Light, dark, or follow the system, for the launcher itself.",
+        ),
+        SET_SYSTEM_DARK_MODE(
+            "set_system_dark_mode",
+            "Change the phone's dark mode",
+            "System-wide dark mode. Needs Shizuku or root.",
         ),
         SET_WALLPAPER(
             "set_wallpaper",
@@ -111,6 +116,7 @@ data class AgentOptions(
 
         fun toAction(): Action = when (this) {
             SET_THEME -> Action.SetTheme("")
+            SET_SYSTEM_DARK_MODE -> Action.SetSystemDarkMode(false)
             SET_WALLPAPER -> Action.SetWallpaper("")
             CREATE_FOLDER -> Action.CreateFolder("", emptyList())
             SET_ANIMATION_SCALE -> Action.SetAnimationScale(0f)
@@ -124,6 +130,7 @@ data class AgentOptions(
             /** The type covering [action], or null for [Action.Unknown]. */
             fun of(action: Action): ActionType? = when (action) {
                 is Action.SetTheme -> SET_THEME
+                is Action.SetSystemDarkMode -> SET_SYSTEM_DARK_MODE
                 is Action.SetWallpaper -> SET_WALLPAPER
                 is Action.CreateFolder -> CREATE_FOLDER
                 is Action.SetAnimationScale -> SET_ANIMATION_SCALE

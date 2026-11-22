@@ -179,4 +179,26 @@ class ActionExecutorParseTest {
         assertThat(ActionExecutor.parseActions("What apps do you use most?")).isEmpty()
         assertThat(ActionExecutor.parseActions("")).isEmpty()
     }
+
+    @Test
+    fun `parses set_system_dark_mode only with an explicit boolean`() {
+        assertThat(ActionExecutor.parseAction("""{"action":"set_system_dark_mode","params":{"enabled":true}}"""))
+            .isEqualTo(Action.SetSystemDarkMode(true))
+        assertThat(ActionExecutor.parseAction("""{"action":"set_system_dark_mode","params":{"enabled":"false"}}"""))
+            .isEqualTo(Action.SetSystemDarkMode(false))
+        // Missing or fuzzy values must not flip the phone.
+        assertThat(ActionExecutor.parseAction("""{"action":"set_system_dark_mode","params":{}}""")).isEqualTo(Action.Unknown)
+        assertThat(ActionExecutor.parseAction("""{"action":"set_system_dark_mode","params":{"enabled":"maybe"}}"""))
+            .isEqualTo(Action.Unknown)
+        assertThat(ActionExecutor.parseAction("""{"action":"set_system_dark_mode","params":{"enabled":1}}"""))
+            .isEqualTo(Action.Unknown)
+    }
+
+    @Test
+    fun `system dark mode round trips`() {
+        for (enabled in listOf(true, false)) {
+            val action = Action.SetSystemDarkMode(enabled)
+            assertThat(ActionExecutor.parseAction(ActionExecutor.toJson(action))).isEqualTo(action)
+        }
+    }
 }

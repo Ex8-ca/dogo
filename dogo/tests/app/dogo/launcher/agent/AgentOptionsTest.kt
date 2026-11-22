@@ -64,6 +64,7 @@ class AgentOptionsTest {
         // user cannot turn it off.
         val wireActions = listOf(
             Action.SetTheme("dark"),
+            Action.SetSystemDarkMode(true),
             Action.SetWallpaper("#ffffff"),
             Action.CreateFolder("Work", listOf("a", "b")),
             Action.SetAnimationScale(0.5f),
@@ -233,6 +234,13 @@ class AgentOptionsTest {
         for (level in AgentOptions.ThinkingLevel.entries) {
             assertThat(AgentOptions.ThinkingLevel.fromWire(level.wireName)).isEqualTo(level)
         }
+    }
+
+    @Test
+    fun `default thinking leaves the server's effort alone`() {
+        assertThat(AgentOptions.ThinkingLevel.DEFAULT.effort).isNull()
+        assertThat(AgentOptions.ThinkingLevel.LOW.effort).isEqualTo("low")
+        assertThat(AgentOptions.ThinkingLevel.HIGH.effort).isEqualTo("high")
     }
 
     @Test
