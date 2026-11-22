@@ -240,6 +240,44 @@ Decisions confirmed by the user:
 Done when: with a week of real use, the user can see why each alert fired, and
 turning off one sender or app takes two taps.
 
+### First integration checkpoint (local verification)
+
+- Default-off app allowlist, Notification Access setup, posting-permission UI,
+  bounded inbox, optional 7-day history outside Android backup, native Dogo
+  alerts and explicit “Discuss” attachment are implemented.
+- Full formatting check, APK build and 227 unit tests pass locally. Pixel test:
+  a shell-only controlled notification appeared in the inbox, a keyword rule
+  emitted a Dogo native alert, an edited notification updated the same row and
+  sender cooldown kept it quiet, and explicit Discuss produced an agent reply.
+  Test-only capture/posting grants and inbox data were restored/removed.
+- Automatic Hermes/Termux classification is deliberately blocked: inspected
+  Hermes chat-completions code does not enforce request `tools`/`tool_choice`
+  as a sandbox. Prompt-only “no tools” is insufficient for unattended incoming
+  text. A server-enforced tool-free route remains required; do not describe
+  selected-Hermes automatic scoring as working yet. Rules/inbox still work.
+- Direct replies, ring unread indicator, scheduled digests and server push are
+  deferred. Notification dismissal/expired-action handling needs another
+  device check; the first shell snooze test failed due to quoting.
+- Glass chat, palette-derived surfaces and tappable answer links build and
+  run. On the Pixel, activity translucency must be selected before window
+  creation to avoid stale-buffer ghost text; the corrected screenshot shows
+  wallpaper gradient and readable chat. Non-chat settings remain opaque.
+- Review corrections verified: 231 tests now pass. Replacement decisions below
+  NOTIFY cancel stale Dogo alerts; the Pixel confirmed this and confirmed
+  source dismissal expires action handles. “Discuss” refuses busy/unavailable
+  sends visibly and keeps the inbox open. Restricted notification provenance
+  survives saved-chat reloads, blocks local proposals at creation/approval,
+  blocks automatic titles/voice replay, and persists through later typed turns.
+- Tool-free policy currently permits only reviewed direct inference hosts
+  (Groq/OpenRouter/Anthropic), not Hermes, Termux, custom servers or native
+  inference without cancellation. Hermes discussion now fails closed too, with
+  an explanation visible on the Pixel; the earlier successful explicit-discuss
+  test is not the final safety policy. Selected-agent analysis remains partial
+  until a server-enforced, deadline-bounded Hermes route is implemented.
+- HTTP now cancels OkHttp calls with coroutine cancellation; classification
+  additionally uses a 40-second hard HTTP call deadline. Wide-screen chat gets
+  the full scrim, and legitimate URL-ending punctuation is preserved.
+
 ## Phase 3: skills that shape the assistant
 
 Goal: install a skill and the assistant behaves differently, on the phone and
