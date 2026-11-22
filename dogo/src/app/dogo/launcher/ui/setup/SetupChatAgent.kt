@@ -16,9 +16,13 @@ object SetupChatAgent {
     /** An app the agent may refer to. */
     data class InstalledApp(val label: String, val packageName: String)
 
+    /** An action from an enabled plugin, e.g. `io.github.you.timer:start_timer`. */
+    data class PluginAction(val qualifiedName: String, val description: String, val params: Map<String, String>)
+
     /** What the phone can actually do right now, so the agent doesn't over-promise. */
     data class PhoneContext(
         val apps: List<InstalledApp> = emptyList(),
+        val pluginActions: List<PluginAction> = emptyList(),
         val systemDarkModeAvailable: Boolean = false,
         val animationScaleAvailable: Boolean = false,
     )
@@ -71,6 +75,17 @@ object SetupChatAgent {
         append(if (phone.systemDarkModeAvailable) "available.\n" else "NOT available yet; offer set_theme for Dogo instead.\n")
         append("- Changing animation speed is ")
         append(if (phone.animationScaleAvailable) "available.\n" else "NOT available yet.\n")
+        if (phone.pluginActions.isNotEmpty()) {
+            append("\nPlugin actions you can also propose (same JSON shape, use the full name):\n")
+            phone.pluginActions.forEach { a ->
+                append("- ").append(a.qualifiedName)
+                if (a.params.isNotEmpty()) {
+                    append(" params {").append(a.params.entries.joinToString(", ") { "\"${it.key}\": ${it.value}" }).append("}")
+                }
+                if (a.description.isNotBlank()) append(": ").append(a.description)
+                append('\n')
+            }
+        }
         if (phone.apps.isEmpty()) {
             append("\nInstalled apps: (unknown)\n")
         } else {

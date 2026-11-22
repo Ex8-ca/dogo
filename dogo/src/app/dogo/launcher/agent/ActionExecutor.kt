@@ -34,6 +34,12 @@ sealed class Action {
 
     data class SetAnimationScale(val scale: Float) : Action()
 
+    /**
+     * An action offered by an enabled plugin, named `pluginId:action`.
+     * [paramsJson] is passed through to the plugin untouched.
+     */
+    data class Plugin(val pluginId: String, val name: String, val paramsJson: String) : Action()
+
     object Unknown : Action()
 }
 
@@ -136,8 +142,16 @@ object ActionExecutor {
                 Action.CreateFolder(params.optString("name"), apps)
             }
 
-            else -> Action.Unknown
+            else -> pluginAction(name, params)
         }
+    }
+
+    private val PLUGIN_ACTION = Regex("^([a-z0-9]+(?:[.-][a-z0-9]+)*\\.[a-z0-9-]+):([a-z][a-z0-9_]{0,40})$")
+
+    /** `io.github.you.timer:start_timer` -> [Action.Plugin]; anything else is unknown. */
+    private fun pluginAction(name: String, params: JSONObject): Action {
+        val match = PLUGIN_ACTION.matchEntire(name) ?: return Action.Unknown
+        return Action.Plugin(match.groupValues[1], match.groupValues[2], params.toString())
     }
 
     /**
@@ -220,6 +234,8 @@ object ActionExecutor {
 
         is Action.SetAnimationScale ->
             """{"action":"set_animation_scale","params":{"scale":${action.scale}}}"""
+
+        is Action.Plugin -> """{"action":${quote("${action.pluginId}:${action.name}")},"params":${action.paramsJson}}"""
 
         Action.Unknown -> """{"action":"unknown","params":{}}"""
     }

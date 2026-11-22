@@ -21,6 +21,8 @@ object PrivilegePlanner {
         val grantedPermissions: Set<String> = emptySet(),
         val shizukuReady: Boolean = false,
         val rootReady: Boolean = false,
+        /** Plugin ids the user has enabled. */
+        val enabledPlugins: Set<String> = emptySet(),
     ) {
         /** The shell routes usable now, least powerful first. */
         val shellTiers: List<Tier>
@@ -33,6 +35,9 @@ object PrivilegePlanner {
     sealed interface Plan {
         /** Apply inside the launcher. */
         data object InLauncher : Plan
+
+        /** Hand to the plugin [pluginId]. */
+        data class ViaPlugin(val pluginId: String) : Plan
 
         /** Apply with a permission Dogo already holds. */
         data class WithPermission(val permission: String) : Plan
@@ -49,6 +54,12 @@ object PrivilegePlanner {
             ?: return Plan.Blocked(Tier.NONE, "Dogo doesn't know how to do this.")
         return when (need) {
             Need.Launcher -> Plan.InLauncher
+
+            is Need.Plugin -> if (need.pluginId in availability.enabledPlugins) {
+                Plan.ViaPlugin(need.pluginId)
+            } else {
+                Plan.Blocked(Tier.NONE, "The plugin ${need.pluginId} isn't installed or enabled. Enable it in Dogo Options > Plugins.")
+            }
 
             is Need.Permission -> when {
                 need.permission in availability.grantedPermissions -> Plan.WithPermission(need.permission)

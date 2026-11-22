@@ -26,6 +26,9 @@ object ActionRequirements {
          */
         data class Permission(val permission: String, val fallback: List<String>) : Need
 
+        /** Handled by an enabled plugin, with the capabilities it was granted. */
+        data class Plugin(val pluginId: String) : Need
+
         /** Needs a privileged shell (Shizuku, root, or system). */
         data class Shell(val command: List<String>) : Need
     }
@@ -58,6 +61,8 @@ object ActionRequirements {
 
         is Action.SetSystemDarkMode -> Need.Shell(listOf("cmd", "uimode", "night", if (action.enabled) "yes" else "no"))
 
+        is Action.Plugin -> Need.Plugin(action.pluginId)
+
         Action.Unknown -> null
     }
 
@@ -66,7 +71,7 @@ object ActionRequirements {
 
     /** The lowest tier that can satisfy [need]. */
     fun minimumTier(need: Need): Tier = when (need) {
-        Need.Launcher -> Tier.NONE
+        Need.Launcher, is Need.Plugin -> Tier.NONE
         is Need.Permission -> Tier.ADB_GRANT
         is Need.Shell -> Tier.SHIZUKU
     }

@@ -112,6 +112,11 @@ data class AgentOptions(
             "Hide an app",
             "Removes an app from the drawer. Reversible in Settings.",
         ),
+        PLUGIN(
+            "plugin",
+            "Run plugin actions",
+            "Actions from plugins you've enabled. Each plugin's own switch still applies.",
+        ),
         ;
 
         fun toAction(): Action = when (this) {
@@ -122,6 +127,7 @@ data class AgentOptions(
             SET_ANIMATION_SCALE -> Action.SetAnimationScale(0f)
             ADD_TO_HOME -> Action.AddToHome("")
             HIDE_APP -> Action.HideApp("")
+            PLUGIN -> Action.Plugin("", "", "{}")
         }
 
         companion object {
@@ -136,6 +142,7 @@ data class AgentOptions(
                 is Action.SetAnimationScale -> SET_ANIMATION_SCALE
                 is Action.AddToHome -> ADD_TO_HOME
                 is Action.HideApp -> HIDE_APP
+                is Action.Plugin -> PLUGIN
                 Action.Unknown -> null
             }
         }

@@ -124,7 +124,7 @@ class SetupChatViewModel(
             runner.close()
             val agent = options.resolvedAgent()
             val problem = agent.problems().firstOrNull()
-            backend = if (problem == null) AgentBackends.remote(agent) else null
+            backend = if (problem == null) AgentBackends.create(getApplication(), agent) else null
             _uiState.update {
                 it.copy(
                     modelReady = backend != null,
@@ -287,6 +287,7 @@ class SetupChatViewModel(
             PrivilegePlanner.Plan.InLauncher -> ActionState.Ready("Launcher only")
             is PrivilegePlanner.Plan.WithPermission -> ActionState.Ready("Granted permission")
             is PrivilegePlanner.Plan.ViaShell -> ActionState.Ready(plan.tier.title)
+            is PrivilegePlanner.Plan.ViaPlugin -> ActionState.Ready("Plugin ${plan.pluginId}")
         }
     }
 
@@ -316,7 +317,13 @@ class SetupChatViewModel(
                 .distinctBy { it.packageName }
         }.getOrDefault(emptyList())
         val availability = access.availability()
+        val pluginActions = access.enabledPlugins().flatMap { plugin ->
+            plugin.manifest.actions.map { spec ->
+                SetupChatAgent.PluginAction(plugin.manifest.qualifiedAction(spec.name), spec.description, spec.params)
+            }
+        }
         PhoneContext(
+            pluginActions = pluginActions,
             apps = apps,
             systemDarkModeAvailable = availability.shellTiers.isNotEmpty(),
             animationScaleAvailable = ActionRequirements.WRITE_SECURE_SETTINGS in availability.grantedPermissions ||

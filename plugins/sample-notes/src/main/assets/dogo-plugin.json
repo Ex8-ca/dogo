@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.ex8ca.dogo-notes",
+  "name": "Notes",
+  "version": "1.0.0",
+  "author": "Ex8-ca",
+  "license": "Apache-2.0",
+  "description": "Lets the agent save short notes on the phone. A minimal example plugin.",
+  "homepage": "https://github.com/Ex8-ca/dogo/tree/dogo/foundation/plugins/sample-notes",
+  "kinds": ["agent-actions"],
+  "entryPoints": { "agentActions": ".NotesActionService" },
+  "capabilities": [],
+  "actions": [
+    {
+      "name": "save_note",
+      "description": "Save a short note the user dictates.",
+      "params": { "text": "the note, as a string" }
+    }
+  ]
+}

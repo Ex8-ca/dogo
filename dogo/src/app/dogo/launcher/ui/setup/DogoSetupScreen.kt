@@ -229,6 +229,7 @@ internal fun describe(action: Action): String? = when (action) {
     is Action.HideApp -> "Hide ${action.pkg}"
     is Action.CreateFolder -> "Create folder \"${action.name}\" (${action.apps.size} apps)"
     is Action.SetAnimationScale -> "Set animations to ${action.scale}x"
+    is Action.Plugin -> "${action.name.replace('_', ' ').replaceFirstChar { it.uppercase() }} (${action.pluginId})"
     Action.Unknown -> null
 }
 

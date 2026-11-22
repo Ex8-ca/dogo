@@ -118,3 +118,6 @@ include ':concurrent'
 //include ':compose'
 include ':modules:widgetpicker'
 
+
+// Dogo: example plugin (separate APK). Build with :plugins:sample-notes:assembleDebug
+include ':plugins:sample-notes'

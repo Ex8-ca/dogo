@@ -7,6 +7,8 @@ package app.dogo.launcher.privilege
 
 import android.content.Context
 import android.content.pm.PackageManager
+import app.dogo.launcher.plugins.PluginRegistry
+import app.dogo.launcher.plugins.PluginStore
 
 /**
  * Reports and requests the access Dogo has, across every [Tier].
@@ -18,6 +20,11 @@ class SystemAccess(context: Context) {
     private val context = context.applicationContext
     private val shizuku = ShizukuShellRunner()
     private val root = RootShellRunner()
+    private val plugins = PluginRegistry(context)
+    private val pluginStore = PluginStore(context)
+
+    /** Installed plugins the user has enabled (at their current version). */
+    fun enabledPlugins(): List<PluginRegistry.Installed> = plugins.scan().plugins.filter(pluginStore::isEnabled)
 
     fun hasPermission(permission: String): Boolean = context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 
@@ -29,6 +36,7 @@ class SystemAccess(context: Context) {
         grantedPermissions = setOf(ActionRequirements.WRITE_SECURE_SETTINGS).filter(::hasPermission).toSet(),
         shizukuReady = shizuku.isReady(),
         rootReady = root.isReady(),
+        enabledPlugins = enabledPlugins().map { it.manifest.id }.toSet(),
     )
 
     fun runner(tier: Tier): ShellRunner = when (tier) {

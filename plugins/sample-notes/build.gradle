@@ -1,0 +1,18 @@
+// Copyright 2026 The Dogo Authors. SPDX-License-Identifier: Apache-2.0
+// A minimal Dogo plugin. Copy this folder to start your own; it needs no Dogo
+// library, only assets/dogo-plugin.json and one exported service.
+// compileSdk/minSdk/Java come from the root build's allprojects block; a
+// standalone plugin repo would set them here.
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+android {
+    namespace 'io.github.ex8ca.dogo.notes'
+
+    defaultConfig {
+        applicationId 'io.github.ex8ca.dogo.notes'
+        versionCode 1
+        versionName '1.0.0'
+    }
+}
