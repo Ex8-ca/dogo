@@ -16,6 +16,7 @@ import app.dogo.launcher.privilege.ActionRequirements
 import app.dogo.launcher.privilege.PrivilegePlanner
 import app.dogo.launcher.privilege.SystemAccess
 import app.dogo.launcher.ui.options.OptionsStore
+import app.dogo.launcher.ui.setup.PhoneFacts
 import app.dogo.launcher.ui.setup.SetupChatAgent
 import app.dogo.launcher.ui.setup.describeAction
 import kotlinx.coroutines.CoroutineScope
@@ -293,6 +294,9 @@ object DogoCall {
             pluginActions = pluginActions,
             systemDarkModeAvailable = availability.shellTiers.isNotEmpty(),
             animationScaleAvailable = ActionRequirements.WRITE_SECURE_SETTINGS in availability.grantedPermissions || availability.shellTiers.isNotEmpty(),
+            widgets = PhoneFacts.widgets(context),
+            home = PhoneFacts.home(context),
+            iconPacks = PhoneFacts.iconPacks(context),
         )
     }
 }

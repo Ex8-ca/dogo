@@ -11,21 +11,31 @@ import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Shader
 import android.os.Process
 import android.provider.Settings
 import androidx.core.graphics.toColorInt
 import app.dogo.launcher.agent.Action
+import app.dogo.launcher.agent.HomeStyle
+import app.dogo.launcher.agent.WidgetSize
 import app.dogo.launcher.plugins.PluginActionRunner
 import app.dogo.launcher.ring.DogoRing
 import app.dogo.launcher.ring.RingStyle
+import app.lawnchair.hotseat.HotseatMode
+import app.lawnchair.icons.shape.IconShape
 import app.lawnchair.preferences.PreferenceManager
 import app.lawnchair.preferences2.PreferenceManager2
+import app.lawnchair.theme.color.ColorOption
 import app.lawnchair.ui.preferences.components.ThemeChoice
+import com.android.launcher3.InvariantDeviceProfile
 import com.android.launcher3.LauncherAppState
 import com.android.launcher3.model.ItemInstallQueue
 import com.android.launcher3.model.data.AppInfo
 import com.android.launcher3.model.data.FolderInfo
 import com.android.launcher3.util.ComponentKey
+import com.android.launcher3.widget.WidgetManagerHelper
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -118,15 +128,32 @@ class ActionApplier(
         is Action.ArrangeRing -> arrangeRing(action)
 
         is Action.SetWallpaper -> {
-            val color = runCatching { action.color.trim().toColorInt() }
-                .getOrElse { error("\"${action.color}\" isn't a colour like #1E1E1E.") }
+            fun parse(c: String) = runCatching { c.trim().toColorInt() }.getOrElse { error("\"$c\" isn't a colour like #1E1E1E.") }
+            val top = parse(action.color)
+            val bottom = action.color2?.let(::parse)
             withContext(Dispatchers.IO) {
-                val bitmap = Bitmap.createBitmap(WALLPAPER_SIZE, WALLPAPER_SIZE, Bitmap.Config.ARGB_8888)
-                Canvas(bitmap).drawColor(color)
+                val metrics = context.resources.displayMetrics
+                val bitmap = if (bottom == null) {
+                    Bitmap.createBitmap(WALLPAPER_SIZE, WALLPAPER_SIZE, Bitmap.Config.ARGB_8888).also { Canvas(it).drawColor(top) }
+                } else {
+                    // A gradient needs the screen's shape, or Android stretches it unevenly.
+                    val w = metrics.widthPixels / 4
+                    val h = metrics.heightPixels / 4
+                    Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also {
+                        val paint = Paint().apply { shader = LinearGradient(0f, 0f, 0f, h.toFloat(), top, bottom, Shader.TileMode.CLAMP) }
+                        Canvas(it).drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+                    }
+                }
                 WallpaperManager.getInstance(context).setBitmap(bitmap)
             }
-            "Wallpaper set to ${action.color}."
+            if (bottom == null) "Wallpaper set to ${action.color}." else "Wallpaper set to a ${action.color} to ${action.color2} gradient."
         }
+
+        is Action.AddWidget -> addWidget(action)
+
+        is Action.StyleHome -> styleHome(action.style.clamped())
+
+        is Action.SetDock -> setDock(action)
 
         else -> error("Not a launcher action")
     }
@@ -204,6 +231,94 @@ class ActionApplier(
         }
     }
 
+    /** The widget [spec] names: "package/class", "package/.Class", or a package (its first widget). */
+    private fun findWidget(spec: String): android.appwidget.AppWidgetProviderInfo {
+        val all = WidgetManagerHelper(context).getAllProviders(null)
+        val s = spec.trim()
+        val pkg = s.substringBefore('/')
+        val cls = s.substringAfter('/', "").let { if (it.startsWith(".")) pkg + it else it }
+        return all.firstOrNull { cls.isNotEmpty() && it.provider.packageName == pkg && it.provider.className == cls }
+            ?: all.firstOrNull { it.provider.packageName == pkg && cls.isNotEmpty() && it.provider.className.endsWith(cls.substringAfterLast('.')) }
+            ?: all.firstOrNull { cls.isEmpty() && it.provider.packageName == pkg }
+            ?: error(
+                "No widget called \"$spec\" on this phone." +
+                    if (all.none { it.provider.packageName == pkg }) " ${labelFor(pkg)} has no widgets." else "",
+            )
+    }
+
+    private suspend fun addWidget(action: Action.AddWidget): String {
+        val provider = findWidget(action.provider)
+        val size = WidgetSize.parse(action.size)
+        val model = LauncherAppState.getInstance(context).model
+        check(model.isModelLoaded()) { NEEDS_HOME_SCREEN_WIDGET }
+        val done = CompletableDeferred<Result<WidgetPlacement>>()
+        withContext(Dispatchers.Main) {
+            model.enqueueModelUpdateTask(AddWidgetTask(provider, size?.columns, size?.rows, action.page) { done.complete(it) })
+        }
+        val placed = (withTimeoutOrNull(FOLDER_TIMEOUT_MS) { done.await() } ?: error(NEEDS_HOME_SCREEN_WIDGET)).getOrThrow()
+        if (placed.alreadyThere) return "The ${placed.label} widget is already on page ${placed.page + 1}."
+        return buildString {
+            append("Added the ${placed.label} widget (${placed.columns}×${placed.rows}) to page ${placed.page + 1}.")
+            if (!placed.bound) {
+                append(" Tap it once and allow Dogo to create widgets; after that, widgets go straight on.")
+            } else if (placed.needsSetup) {
+                append(" Tap it to finish setting it up.")
+            }
+        }
+    }
+
+    private suspend fun setDock(action: Action.SetDock): String {
+        val user = Process.myUserHandle()
+        val launcherApps = context.getSystemService(LauncherApps::class.java)
+        val missing = mutableListOf<String>()
+        val apps = action.apps.mapNotNull { pkg ->
+            launcherApps.getActivityList(pkg, user).firstOrNull()?.let { AppInfo(context, it, user) }.also { if (it == null) missing += pkg }
+        }
+        check(apps.isNotEmpty()) { "None of those apps are installed: ${action.apps.joinToString()}." }
+        val model = LauncherAppState.getInstance(context).model
+        check(model.isModelLoaded()) { NEEDS_HOME_SCREEN }
+        val slots = InvariantDeviceProfile.INSTANCE.get(context).numShownHotseatIcons
+        val done = CompletableDeferred<Result<Int>>()
+        withContext(Dispatchers.Main) { model.enqueueModelUpdateTask(SetDockTask(apps) { done.complete(it) }) }
+        val n = (withTimeoutOrNull(FOLDER_TIMEOUT_MS) { done.await() } ?: error(NEEDS_HOME_SCREEN)).getOrThrow()
+        return buildString {
+            append("The dock now has ${apps.take(n).joinToString { it.title.toString() }}.")
+            if (apps.size > slots) append(" The dock has $slots slots; the rest were left out.")
+            if (missing.isNotEmpty()) append(" Not installed: ${missing.joinToString()}.")
+        }
+    }
+
+    private suspend fun styleHome(style: HomeStyle): String {
+        require(!style.isEmpty) { "Nothing to change." }
+        val prefs = PreferenceManager.getInstance(context)
+        val prefs2 = PreferenceManager2.getInstance(context)
+        style.iconPack?.let { pack ->
+            if (pack.isNotEmpty()) {
+                runCatching { context.packageManager.getPackageInfo(pack, 0) }.getOrElse { error("The icon pack $pack isn't installed.") }
+            }
+        }
+        withContext(Dispatchers.Main) {
+            if (style.columns != null || style.rows != null || style.dockColumns != null) {
+                prefs.batchEdit {
+                    style.columns?.let { prefs.workspaceColumns.set(it) }
+                    style.rows?.let { prefs.workspaceRows.set(it) }
+                    style.dockColumns?.let { prefs.hotseatColumns.set(it) }
+                }
+                InvariantDeviceProfile.INSTANCE.get(context).onPreferencesChanged(context)
+            }
+            style.iconPack?.let { prefs.iconPackPackage.set(it) }
+        }
+        style.iconSize?.let { prefs2.homeIconSizeFactor.set(it) }
+        style.labels?.let { prefs2.showIconLabelsOnHomeScreen.set(it) }
+        style.iconShape?.let { name -> IconShape.fromString(name, context)?.let { prefs2.iconShape.set(it) } }
+        style.dock?.let { prefs2.isHotseatEnabled.set(it) }
+        style.searchBar?.let { on -> prefs2.hotseatMode.set(if (on) HotseatMode.fromString("lawnchair") else HotseatMode.fromString("disabled")) }
+        style.glance?.let { prefs2.enableSmartspace.set(it) }
+        style.accent?.let { prefs2.accentColor.set(ColorOption.CustomColor(it.toColorInt())) }
+        style.notificationCounts?.let { prefs2.showNotificationCount.set(it) }
+        return "Home screen updated: ${style.describe()}."
+    }
+
     private fun componentKeysFor(pkg: String): List<ComponentKey> {
         val user = Process.myUserHandle()
         val activities = context.getSystemService(LauncherApps::class.java).getActivityList(pkg, user)
@@ -219,6 +334,8 @@ class ActionApplier(
     private companion object {
         const val WALLPAPER_SIZE = 64
         const val FOLDER_TIMEOUT_MS = 10_000L
+        const val NEEDS_HOME_SCREEN_WIDGET =
+            "Widgets go on Dogo's home screen. Set Dogo as your home app (or open it once), then try again."
         const val NEEDS_HOME_SCREEN =
             "Folders are made on Dogo's home screen. Set Dogo as your home app (or open it once), then try again."
     }

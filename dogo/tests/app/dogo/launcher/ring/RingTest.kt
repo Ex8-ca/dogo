@@ -133,6 +133,9 @@ class RingTest {
         assertThat(RingConfig.fromJson("""{"style": "sparkly"}""").style).isEqualTo(RingStyle.GLOW)
         assertThat(RingConfig.fromJson("""{"style": "Fire"}""").style).isEqualTo(RingStyle.FIRE)
         assertThat(RingStyle.fromWire(" electric ")).isEqualTo(RingStyle.ELECTRIC)
+        // Tenkai's names for the same looks.
+        assertThat(RingStyle.fromWire("Magic")).isEqualTo(RingStyle.GLOW)
+        assertThat(RingStyle.fromWire("dark")).isEqualTo(RingStyle.MINIMAL)
         assertThat(RingConfig().isAutomatic).isTrue()
     }
 

@@ -71,6 +71,9 @@ class AgentOptionsTest {
             Action.AddToHome("com.example"),
             Action.HideApp("com.example"),
             Action.ArrangeRing(listOf(app.dogo.launcher.ring.RingGroup("Talk", listOf("a.b"))), null),
+            Action.AddWidget("com.example/.Clock", "4x2"),
+            Action.StyleHome(HomeStyle(columns = 5)),
+            Action.SetDock(listOf("com.example")),
             Action.Plugin("io.github.you.timer", "start_timer", "{}"),
         )
         for (action in wireActions) {

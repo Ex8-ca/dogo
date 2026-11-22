@@ -26,7 +26,20 @@ sealed class Action {
      */
     data class SetSystemDarkMode(val enabled: Boolean) : Action()
 
-    data class SetWallpaper(val color: String) : Action()
+    /** A flat colour, or a top-to-bottom gradient when [color2] is set. */
+    data class SetWallpaper(val color: String, val color2: String? = null) : Action()
+
+    /**
+     * Puts a widget on the home screen. [provider] is "package/class" or just a
+     * package (its first widget). [size] is like "4x2"; [page] counts from 0.
+     */
+    data class AddWidget(val provider: String, val size: String? = null, val page: Int? = null) : Action()
+
+    /** Grid, icons, dock, accent and the other look-and-feel switches. */
+    data class StyleHome(val style: HomeStyle) : Action()
+
+    /** Replaces the dock's apps, left to right. */
+    data class SetDock(val apps: List<String>) : Action()
 
     data class AddToHome(val pkg: String) : Action()
 
@@ -133,7 +146,30 @@ object ActionExecutor {
                 Action.SetSystemDarkMode(enabled)
             }
 
-            "set_wallpaper" -> Action.SetWallpaper(params.optString("color"))
+            "set_wallpaper" -> Action.SetWallpaper(
+                params.optString("color"),
+                (params.optString("color2").ifBlank { params.optString("gradient_to") }).trim().ifEmpty { null },
+            )
+
+            "add_widget" -> {
+                val provider = params.optString("widget").ifBlank { params.optString("provider") }.trim()
+                if (provider.isEmpty()) return Action.Unknown
+                val page = if (params.has("page")) params.optInt("page", -1).takeIf { it >= 0 } else null
+                Action.AddWidget(provider, params.optString("size").trim().ifEmpty { null }, page)
+            }
+
+            "style_home" -> {
+                val style = HomeStyle.fromJson(params)
+                if (style.isEmpty) return Action.Unknown
+                Action.StyleHome(style)
+            }
+
+            "set_dock" -> {
+                val appsArray = params.optJSONArray("apps") ?: return Action.Unknown
+                val apps = (0 until appsArray.length()).mapNotNull { appsArray.optString(it).trim().ifEmpty { null } }
+                if (apps.isEmpty()) return Action.Unknown
+                Action.SetDock(apps.distinct())
+            }
 
             "add_to_home" -> Action.AddToHome(params.optString("package"))
 
@@ -234,8 +270,20 @@ object ActionExecutor {
         is Action.SetSystemDarkMode ->
             """{"action":"set_system_dark_mode","params":{"enabled":${action.enabled}}}"""
 
-        is Action.SetWallpaper ->
-            """{"action":"set_wallpaper","params":{"color":${quote(action.color)}}}"""
+        is Action.SetWallpaper -> {
+            val second = action.color2?.let { ""","color2":${quote(it)}""" }.orEmpty()
+            """{"action":"set_wallpaper","params":{"color":${quote(action.color)}$second}}"""
+        }
+
+        is Action.AddWidget -> {
+            val size = action.size?.let { ""","size":${quote(it)}""" }.orEmpty()
+            val page = action.page?.let { ""","page":$it""" }.orEmpty()
+            """{"action":"add_widget","params":{"widget":${quote(action.provider)}$size$page}}"""
+        }
+
+        is Action.StyleHome -> """{"action":"style_home","params":${action.style.toJson()}}"""
+
+        is Action.SetDock -> """{"action":"set_dock","params":{"apps":${action.apps.toJsonArray()}}}"""
 
         is Action.AddToHome ->
             """{"action":"add_to_home","params":{"package":${quote(action.pkg)}}}"""

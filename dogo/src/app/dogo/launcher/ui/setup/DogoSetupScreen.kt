@@ -21,9 +21,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -46,6 +48,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -73,6 +77,29 @@ fun DogoSetupScreen(
     val micPermission = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
     ) { granted -> if (granted) viewModel.toggleVoice() }
+    // Photos of another phone (or a screenshot) for "make mine look like this".
+    var photoFile by remember { mutableStateOf<java.io.File?>(null) }
+    val takePhoto = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.TakePicture(),
+    ) { ok ->
+        val file = photoFile
+        if (ok && file != null) {
+            PhotoCodec.load(context, android.net.Uri.fromFile(file))?.let { viewModel.sendPhoto(it, input) }
+                ?: viewModel.showStatus("Couldn't read that photo. Try again, or pick it from your gallery.")
+            input = ""
+            file.delete()
+        }
+    }
+    val pickPhoto = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        android.util.Log.i("DogoPhoto", "picked $uri")
+        if (uri != null) {
+            PhotoCodec.load(context, uri)?.let { viewModel.sendPhoto(it, input) }
+                ?: viewModel.showStatus("Couldn't read that photo. Try a different one.")
+            input = ""
+        }
+    }
     // Leaving the screen ends the call; a mic left open in the background would be a surprise.
     androidx.compose.runtime.DisposableEffect(viewModel) { onDispose { viewModel.stopVoice() } }
 
@@ -154,7 +181,7 @@ fun DogoSetupScreen(
                 value = input,
                 onValueChange = { input = it },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                placeholder = { Text("e.g. make it dark and tidy my apps") },
+                placeholder = { Text("e.g. add a clock widget, or send a photo of a phone to copy") },
                 maxLines = 4,
             )
             Row(
@@ -174,6 +201,30 @@ fun DogoSetupScreen(
                     onMute = viewModel::setVoiceMuted,
                     modifier = Modifier.weight(1f),
                 )
+                IconButton(
+                    onClick = {
+                        val dir = java.io.File(context.externalCacheDir ?: context.cacheDir, "photos").apply { mkdirs() }
+                        val file = java.io.File(dir, "look-${System.currentTimeMillis()}.jpg")
+                        photoFile = file
+                        val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                        runCatching { takePhoto.launch(uri) }
+                    },
+                    enabled = !state.busy,
+                ) {
+                    Icon(Icons.Default.PhotoCamera, contentDescription = "Take a photo of a phone to copy its look")
+                }
+                IconButton(
+                    onClick = {
+                        pickPhoto.launch(
+                            androidx.activity.result.PickVisualMediaRequest(
+                                androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly,
+                            ),
+                        )
+                    },
+                    enabled = !state.busy,
+                ) {
+                    Icon(Icons.Default.AddPhotoAlternate, contentDescription = "Choose a screenshot or photo to copy")
+                }
                 IconButton(
                     onClick = {
                         viewModel.send(input)
@@ -276,6 +327,16 @@ private fun MessageBubble(
         MaterialTheme.colorScheme.surfaceVariant
     }
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = alignment) {
+        message.photo?.let { photo ->
+            androidx.compose.foundation.Image(
+                bitmap = photo.asImageBitmap(),
+                contentDescription = "Photo you sent",
+                modifier = Modifier
+                    .widthIn(max = 200.dp)
+                    .padding(bottom = 4.dp)
+                    .clip(RoundedCornerShape(14.dp)),
+            )
+        }
         Box(
             modifier = Modifier
                 .widthIn(max = 320.dp)
@@ -312,7 +373,14 @@ internal fun describe(action: Action): String? = when (action) {
 
     is Action.SetSystemDarkMode -> if (action.enabled) "Turn on the phone's dark mode" else "Turn off the phone's dark mode"
 
-    is Action.SetWallpaper -> "Set wallpaper to ${action.color}"
+    is Action.SetWallpaper -> if (action.color2 == null) "Set wallpaper to ${action.color}" else "Gradient wallpaper ${action.color} → ${action.color2}"
+
+    is Action.AddWidget -> "Add a widget: ${action.provider.substringAfterLast('.').substringAfterLast('/')}" +
+        (action.size?.let { " ($it)" } ?: "") + (action.page?.let { " on page ${it + 1}" } ?: "")
+
+    is Action.StyleHome -> "Home screen: ${action.style.clamped().describe().ifEmpty { "no change" }}"
+
+    is Action.SetDock -> "Dock: ${action.apps.joinToString { it.substringAfterLast('.') }}"
 
     is Action.AddToHome -> "Add ${action.pkg} to home"
 

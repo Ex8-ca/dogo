@@ -31,7 +31,16 @@ enum class RingStyle(val wireName: String, val title: String) {
     ;
 
     companion object {
-        fun fromWire(value: String?): RingStyle? = entries.firstOrNull { it.wireName.equals(value?.trim(), ignoreCase = true) }
+        fun fromWire(value: String?): RingStyle? {
+            val v = value?.trim()?.lowercase() ?: return null
+            // Tenkai's names for the same looks.
+            val name = when (v) {
+                "magic", "sparkle" -> "glow"
+                "dark", "plain" -> "minimal"
+                else -> v
+            }
+            return entries.firstOrNull { it.wireName == name }
+        }
     }
 }
 

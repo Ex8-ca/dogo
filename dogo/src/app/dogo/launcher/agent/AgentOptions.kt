@@ -117,6 +117,21 @@ data class AgentOptions(
             "Arrange the Dogo Ring",
             "Group your apps in the home-screen ring and pick its style.",
         ),
+        ADD_WIDGET(
+            "add_widget",
+            "Add widgets",
+            "Puts a widget (clock, music, calendar…) on a home screen page.",
+        ),
+        STYLE_HOME(
+            "style_home",
+            "Change the home screen layout",
+            "Grid size, icon size and shape, labels, dock, search bar, accent colour.",
+        ),
+        SET_DOCK(
+            "set_dock",
+            "Choose the dock apps",
+            "Replaces the apps in the dock. They stay installed and in the drawer.",
+        ),
         PLUGIN(
             "plugin",
             "Run plugin actions",
@@ -133,6 +148,9 @@ data class AgentOptions(
             ADD_TO_HOME -> Action.AddToHome("")
             HIDE_APP -> Action.HideApp("")
             ARRANGE_RING -> Action.ArrangeRing(emptyList(), null)
+            ADD_WIDGET -> Action.AddWidget("")
+            STYLE_HOME -> Action.StyleHome(HomeStyle())
+            SET_DOCK -> Action.SetDock(emptyList())
             PLUGIN -> Action.Plugin("", "", "{}")
         }
 
@@ -149,6 +167,9 @@ data class AgentOptions(
                 is Action.AddToHome -> ADD_TO_HOME
                 is Action.HideApp -> HIDE_APP
                 is Action.ArrangeRing -> ARRANGE_RING
+                is Action.AddWidget -> ADD_WIDGET
+                is Action.StyleHome -> STYLE_HOME
+                is Action.SetDock -> SET_DOCK
                 is Action.Plugin -> PLUGIN
                 Action.Unknown -> null
             }

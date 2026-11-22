@@ -50,6 +50,9 @@ object ActionRequirements {
         is Action.CreateFolder,
         is Action.SetWallpaper,
         is Action.ArrangeRing,
+        is Action.AddWidget,
+        is Action.StyleHome,
+        is Action.SetDock,
         -> Need.Launcher
 
         is Action.SetAnimationScale -> {

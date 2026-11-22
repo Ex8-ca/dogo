@@ -34,10 +34,20 @@ class OpenAiCompatibleBackend(
     override suspend fun reply(system: String, turns: List<ChatTurn>, options: ReplyOptions): Result<String> = resultOf {
         val messages = JSONArray().put(JSONObject().put("role", "system").put("content", system))
         turns.forEach { turn ->
+            val content: Any = if (turn.images.isEmpty()) {
+                turn.text
+            } else {
+                JSONArray().apply {
+                    put(JSONObject().put("type", "text").put("text", turn.text))
+                    turn.images.forEach { jpeg ->
+                        put(JSONObject().put("type", "image_url").put("image_url", JSONObject().put("url", "data:image/jpeg;base64,$jpeg")))
+                    }
+                }
+            }
             messages.put(
                 JSONObject()
                     .put("role", if (turn.role == ChatTurn.Role.USER) "user" else "assistant")
-                    .put("content", turn.text),
+                    .put("content", content),
             )
         }
         val body = JSONObject()
@@ -94,10 +104,25 @@ class AnthropicBackend(
     override suspend fun reply(system: String, turns: List<ChatTurn>, options: ReplyOptions): Result<String> = resultOf {
         val messages = JSONArray()
         turns.forEach { turn ->
+            val content: Any = if (turn.images.isEmpty()) {
+                turn.text
+            } else {
+                JSONArray().apply {
+                    turn.images.forEach { jpeg ->
+                        put(
+                            JSONObject().put("type", "image").put(
+                                "source",
+                                JSONObject().put("type", "base64").put("media_type", "image/jpeg").put("data", jpeg),
+                            ),
+                        )
+                    }
+                    put(JSONObject().put("type", "text").put("text", turn.text))
+                }
+            }
             messages.put(
                 JSONObject()
                     .put("role", if (turn.role == ChatTurn.Role.USER) "user" else "assistant")
-                    .put("content", turn.text),
+                    .put("content", content),
             )
         }
         val body = JSONObject()
@@ -123,7 +148,9 @@ class AnthropicBackend(
 
     companion object {
         const val API_VERSION = "2023-06-01"
-        const val MAX_TOKENS = 1024
+
+        // Copying a phone from a photo can propose a dozen actions.
+        const val MAX_TOKENS = 2048
     }
 }
 

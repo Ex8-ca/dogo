@@ -70,6 +70,32 @@ class RemoteBackendsTest {
         ChatTurn(ChatTurn.Role.USER, "make it dark"),
     )
 
+    @Test
+    fun `a photo goes as an image part to openai-style servers`() = runBlocking {
+        routes["/v1/chat/completions"] = 200 to """{"choices":[{"message":{"content":"looks like a pixel"}}]}"""
+        val withPhoto = listOf(ChatTurn(ChatTurn.Role.USER, "copy this", images = listOf("QUJD")))
+        OpenAiCompatibleBackend(agent(AgentCatalog.HERMES), client).reply("sys", withPhoto).getOrThrow()
+        val content = org.json.JSONObject(requests.last().body).getJSONArray("messages").getJSONObject(1).getJSONArray("content")
+        assertThat(content.getJSONObject(0).getString("text")).isEqualTo("copy this")
+        assertThat(content.getJSONObject(1).getJSONObject("image_url").getString("url")).isEqualTo("data:image/jpeg;base64,QUJD")
+    }
+
+    @Test
+    fun `a photo goes as a base64 image block to claude`() = runBlocking {
+        routes["/v1/messages"] = 200 to """{"content":[{"type":"text","text":"ok"}]}"""
+        val withPhoto = listOf(ChatTurn(ChatTurn.Role.USER, "copy this", images = listOf("QUJD")))
+        AnthropicBackend(agent(AgentCatalog.find("anthropic")!!), client).reply("sys", withPhoto).getOrThrow()
+        val content = org.json.JSONObject(requests.last().body).getJSONArray("messages").getJSONObject(0).getJSONArray("content")
+        assertThat(content.getJSONObject(0).getJSONObject("source").getString("data")).isEqualTo("QUJD")
+        assertThat(content.getJSONObject(1).getString("text")).isEqualTo("copy this")
+    }
+
+    @Test
+    fun `only agents that can carry photos are offered them`() {
+        assertThat(AgentCatalog.HERMES.seesImages).isTrue()
+        assertThat(AgentCatalog.ON_DEVICE.seesImages).isFalse()
+    }
+
     // ---- OpenAI-compatible --------------------------------------------------
 
     @Test

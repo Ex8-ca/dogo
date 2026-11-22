@@ -46,6 +46,14 @@ data class AgentPreset(
      */
     val leavesDevice: Boolean
         get() = kind != AgentKind.ON_DEVICE
+
+    /**
+     * Whether photos can be sent. HTTP agents can carry them; whether the model
+     * behind them can actually see is up to the server (Hermes, GPT, Claude and
+     * Gemini can). The on-device model and Termux CLIs only take text.
+     */
+    val seesImages: Boolean
+        get() = kind == AgentKind.OPENAI_COMPATIBLE || kind == AgentKind.ANTHROPIC
 }
 
 /**

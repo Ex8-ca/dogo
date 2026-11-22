@@ -35,6 +35,9 @@ class SetupChatAgentTest {
             "set_system_dark_mode",
             "set_animation_scale",
             "arrange_ring",
+            "add_widget",
+            "style_home",
+            "set_dock",
         )
 
         documented.forEach { action ->
@@ -138,6 +141,26 @@ class SetupChatAgentTest {
         assertThat(prompt).contains("com.android.documentsui")
     }
 
+    @Test
+    fun `phone section lists widgets, the current layout and icon packs`() {
+        val text = SetupChatAgent.phoneSection(
+            SetupChatAgent.PhoneContext(
+                widgets = listOf("com.android.deskclock/com.android.alarmclock.DigitalAppWidgetProvider = Clock: Digital clock (4x2)"),
+                home = listOf("Grid: 4 columns x 6 rows; dock has 4 slots."),
+                iconPacks = listOf(SetupChatAgent.InstalledApp("Arcticons", "com.donnnno.arcticons")),
+            ),
+        )
+        assertThat(text).contains("DigitalAppWidgetProvider = Clock: Digital clock (4x2)")
+        assertThat(text).contains("Grid: 4 columns x 6 rows")
+        assertThat(text).contains("Arcticons = com.donnnno.arcticons")
+    }
+
+    @Test
+    fun `prompt explains copying a phone from a photo`() {
+        assertThat(SetupChatAgent.systemPrompt).contains("photo of another phone")
+        assertThat(SetupChatAgent.systemPrompt).contains("squircle")
+    }
+
     private fun paramsFor(action: String) = when (action) {
         "set_wallpaper" -> """{"color":"#000000"}"""
         "add_to_home" -> """{"package":"com.example"}"""
@@ -147,6 +170,9 @@ class SetupChatAgentTest {
         "set_animation_scale" -> """{"scale":0.5}"""
         "set_system_dark_mode" -> """{"enabled":true}"""
         "arrange_ring" -> """{"style":"glow"}"""
+        "add_widget" -> """{"widget":"com.example/.W"}"""
+        "style_home" -> """{"labels":true}"""
+        "set_dock" -> """{"apps":["com.example"]}"""
         else -> "{}"
     }
 }

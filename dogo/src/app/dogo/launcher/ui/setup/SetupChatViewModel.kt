@@ -77,6 +77,7 @@ class SetupChatViewModel(
         val text: String,
         val fromUser: Boolean,
         val proposals: List<Proposal> = emptyList(),
+        val photo: android.graphics.Bitmap? = null,
     )
 
     data class UiState(
@@ -98,17 +99,24 @@ class SetupChatViewModel(
         data class Live(val speaking: Boolean = false, val muted: Boolean = false) : VoiceState
     }
 
-    private val turns = mutableListOf<ChatTurn>()
+    private val turns get() = ChatMemory.turns
     private val runner = ModelRunner.forContext(application)
     private val optionsStore = OptionsStore(application)
     private var backend: AgentBackend? = null
     private val access = SystemAccess(application)
     private val applier = ActionApplier(application, access)
-    private var nextProposalId = 0L
+    private var nextProposalId: Long
+        get() = ChatMemory.nextProposalId
+        set(value) {
+            ChatMemory.nextProposalId = value
+        }
 
     /** Refreshed before each turn, so the agent sees what is actually possible. */
     @Volatile private var phone = PhoneContext()
-    private val _uiState = MutableStateFlow(UiState())
+
+    // Kept outside the ViewModel: changing the accent or theme restarts this
+    // screen, and the conversation (and any change being applied) must survive it.
+    private val _uiState = ChatMemory.state.also { st -> st.update { it.copy(voice = VoiceState.Off) } }
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {
@@ -180,7 +188,31 @@ class SetupChatViewModel(
         }
     }
 
-    fun send(text: String) {
+    /**
+     * Sends a photo (of another phone, a screenshot, a wallpaper) with an
+     * optional message. Only agents that can see get it.
+     */
+    fun showStatus(text: String) {
+        _uiState.update { it.copy(status = text) }
+    }
+
+    fun sendPhoto(photo: android.graphics.Bitmap, text: String) {
+        android.util.Log.i("DogoPhoto", "sending ${photo.width}x${photo.height} busy=${_uiState.value.busy} agent=${_uiState.value.options.agent.id}")
+        if (_uiState.value.busy) return
+        if (!_uiState.value.options.agent.seesImages) {
+            _uiState.update {
+                it.copy(status = "${it.options.agent.displayName} can't see photos. Pick Hermes or another online agent in Dogo Options, then try again.")
+            }
+            return
+        }
+        viewModelScope.launch {
+            val jpeg = withContext(Dispatchers.Default) { PhotoCodec.encode(photo) }
+            val thumb = withContext(Dispatchers.Default) { PhotoCodec.thumbnail(photo) }
+            send(text.trim().ifEmpty { PHOTO_PROMPT }, listOf(jpeg), thumb)
+        }
+    }
+
+    fun send(text: String, images: List<String> = emptyList(), thumbnail: android.graphics.Bitmap? = null) {
         val trimmed = text.trim()
         if (trimmed.isEmpty() || _uiState.value.busy) return
         val active = backend
@@ -193,14 +225,14 @@ class SetupChatViewModel(
 
         _uiState.update { state ->
             state.copy(
-                messages = state.messages + Message(trimmed, fromUser = true),
+                messages = state.messages + Message(trimmed, fromUser = true, photo = thumbnail),
                 busy = true,
                 status = null,
             )
         }
-        turns += ChatTurn(ChatTurn.Role.USER, trimmed)
+        turns += ChatTurn(ChatTurn.Role.USER, trimmed, images)
 
-        viewModelScope.launch {
+        ChatMemory.scope.launch {
             phone = loadPhoneContext()
             val options = _uiState.value.options
             active.reply(
@@ -209,6 +241,8 @@ class SetupChatViewModel(
                 ReplyOptions(effort = options.thinkingLevel.effort),
             )
                 .onSuccess { reply ->
+                    // A photo is sent once; later turns carry the reply that describes it.
+                    turns.replaceAll { if (it.images.isEmpty()) it else it.copy(images = emptyList(), text = it.text + "\n(The user sent a photo here.)") }
                     turns += ChatTurn(ChatTurn.Role.ASSISTANT, reply)
                     val proposals = ActionExecutor.parseActions(reply).map { action ->
                         Proposal(nextProposalId++, action, initialState(action, options))
@@ -241,7 +275,7 @@ class SetupChatViewModel(
             return
         }
         setProposalState(proposalId, ActionState.Applying)
-        viewModelScope.launch {
+        ChatMemory.scope.launch {
             val outcome = applier.apply(proposal.action)
             setProposalState(
                 proposalId,
@@ -345,6 +379,9 @@ class SetupChatViewModel(
             systemDarkModeAvailable = availability.shellTiers.isNotEmpty(),
             animationScaleAvailable = ActionRequirements.WRITE_SECURE_SETTINGS in availability.grantedPermissions ||
                 availability.shellTiers.isNotEmpty(),
+            widgets = PhoneFacts.widgets(app),
+            home = PhoneFacts.home(app),
+            iconPacks = PhoneFacts.iconPacks(app),
         )
     }
 
@@ -465,4 +502,20 @@ class SetupChatViewModel(
         super.onCleared()
         runner.close()
     }
+}
+
+/** What a photo sent without words means. */
+internal const val PHOTO_PROMPT = "Make my phone look like the one in this photo, as closely as you can."
+
+/**
+ * The setup conversation, held for the life of the launcher process rather than
+ * one screen. Settings like the accent colour restart the screen when applied;
+ * without this the chat (and the rest of the proposed changes) would vanish.
+ */
+internal object ChatMemory {
+    val state = MutableStateFlow(SetupChatViewModel.UiState())
+    val turns: MutableList<ChatTurn> = java.util.Collections.synchronizedList(mutableListOf())
+
+    @Volatile var nextProposalId = 0L
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main.immediate)
 }

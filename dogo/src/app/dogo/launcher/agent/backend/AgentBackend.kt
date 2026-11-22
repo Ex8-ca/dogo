@@ -13,8 +13,11 @@ import kotlin.coroutines.cancellation.CancellationException
  */
 data class ReplyOptions(val effort: String? = null)
 
-/** One turn of the setup conversation. */
-data class ChatTurn(val role: Role, val text: String) {
+/**
+ * One turn of the setup conversation. [images] are JPEGs, base64-encoded,
+ * sent only to agents that can see ([AgentPreset.seesImages]).
+ */
+data class ChatTurn(val role: Role, val text: String, val images: List<String> = emptyList()) {
     enum class Role { USER, ASSISTANT }
 }
 
