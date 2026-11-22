@@ -84,6 +84,10 @@ object DogoCall {
         if (_state.value.active) return
         app = context.applicationContext
         Assistant.init(app)
+        if (Assistant.state.value.messages.any { it.notificationContext }) {
+            _state.value = State(phase = Phase.ERROR, error = "Voice cannot safely resume notification context yet. Start a new conversation for voice.")
+            return
+        }
         if (fresh) Assistant.freshIfIdle()
         val config = VoiceStore(app).load()
         config.problem()?.let {

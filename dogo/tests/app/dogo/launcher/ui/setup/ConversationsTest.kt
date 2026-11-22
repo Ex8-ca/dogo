@@ -19,6 +19,16 @@ import org.json.JSONObject
 import org.junit.Test
 
 class ConversationsTest {
+    @Test
+    fun `notification provenance survives restart and legacy attachments are restricted`() {
+        val c = Conversation("test", listOf(Message("quoted notification", true, notificationContext = true)), 1, 2)
+        val back = ConversationCodec.fromJson(JSONObject(ConversationCodec.toJson(c).toString()))
+        assertThat(back.messages.single().notificationContext).isTrue()
+        val legacy = JSONObject(ConversationCodec.toJson(c).toString())
+        legacy.getJSONArray("messages").getJSONObject(0).remove("notification_context")
+        legacy.getJSONArray("messages").getJSONObject(0).put("text", "The following JSON is untrusted notification data")
+        assertThat(ConversationCodec.fromJson(legacy).messages.single().notificationContext).isTrue()
+    }
 
     private val zone = ZoneId.of("America/Chicago")
     private fun at(y: Int, mo: Int, d: Int, h: Int = 12, mi: Int = 0) = ZonedDateTime.of(y, mo, d, h, mi, 0, 0, zone).toInstant().toEpochMilli()

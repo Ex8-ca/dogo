@@ -1,5 +1,6 @@
 /*
  * Copyright 2021, Lawnchair
+ * Modified by The Dogo Authors, 2026 (see NOTICE)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,13 +36,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.window.layout.DisplayFeature
 import app.lawnchair.ui.preferences.destinations.PreferencesDashboard
+import app.lawnchair.ui.preferences.navigation.DogoSetup
 import app.lawnchair.ui.preferences.navigation.General
 import app.lawnchair.ui.preferences.navigation.IconPicker
 import app.lawnchair.ui.preferences.navigation.PreferenceNavigation
@@ -80,6 +85,8 @@ fun Preferences(
     interactor: PreferenceInteractor = viewModel<PreferenceViewModel>(),
 ) {
     val navController = rememberNavController()
+    val currentEntry by navController.currentBackStackEntryAsState()
+    val chatActive = currentEntry?.destination?.hasRoute<DogoSetup>() == true
     val isExpandedScreen = windowSizeClass.widthSizeClass == WindowWidthSizeClass.Expanded &&
         windowSizeClass.heightSizeClass in
         setOf(WindowHeightSizeClass.Expanded, WindowHeightSizeClass.Medium)
@@ -94,7 +101,8 @@ fun Preferences(
 
     Providers {
         Surface(
-            color = MaterialTheme.colorScheme.surface,
+            color = if (chatActive) Color.Transparent else MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
             modifier = modifier,
         ) {
             CompositionLocalProvider(
@@ -107,7 +115,8 @@ fun Preferences(
                     onRouteChange = {
                         currentTopRoute = it
                     },
-                    useTwoPane = useTwoPane,
+                    useTwoPane = useTwoPane && !chatActive,
+                    chatActive = chatActive,
                     displayFeatures = displayFeatures,
                     isExpandedScreen = isExpandedScreen,
                     navController = navController,
@@ -125,6 +134,7 @@ fun Preferences(
 
 @Composable
 private fun PreferenceScreen(
+    chatActive: Boolean,
     currentTopRoute: PreferenceRootRoute,
     onRouteChange: (PreferenceRootRoute) -> Unit,
     useTwoPane: Boolean,
@@ -157,9 +167,10 @@ private fun PreferenceScreen(
             )
         }
 
-        isExpandedScreen -> {
+        isExpandedScreen && !chatActive -> {
             Surface(
-                color = MaterialTheme.colorScheme.surface,
+                color = if (chatActive) Color.Transparent else MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
                     .fillMaxWidth(),
             ) {

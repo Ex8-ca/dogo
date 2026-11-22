@@ -66,6 +66,7 @@ import app.dogo.launcher.agent.backend.KeyRequirement
 import app.dogo.launcher.agent.backend.ResolvedAgent
 import app.dogo.launcher.agent.backend.Termux
 import app.dogo.launcher.agent.backend.TermuxCli
+import app.dogo.launcher.alerts.AlertsSection
 import app.dogo.launcher.llm.ModelCatalog
 import app.dogo.launcher.plugins.PluginRegistry
 import app.dogo.launcher.privilege.Tier
@@ -213,6 +214,8 @@ fun DogoOptionsScreen(
                 onUseHermes = viewModel::useHermesForVoice,
                 onTest = viewModel::testVoice,
             )
+
+            AlertsSection()
 
             SectionLabel("Dogo Ring")
             RingSection(

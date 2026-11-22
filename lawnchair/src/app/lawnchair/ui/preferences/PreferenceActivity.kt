@@ -1,5 +1,6 @@
 /*
  * Copyright 2021, Lawnchair
+ * Modified by The Dogo Authors, 2026 (see NOTICE)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +37,12 @@ import kotlinx.serialization.json.Json
 class PreferenceActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Select translucency before the window is created; changing its pixel
+        // format later is insufficient on some devices and leaves stale buffers.
+        if (!com.android.launcher3.BuildConfig.SHOW_UPSTREAM_UPDATE_CHECK) {
+            val theme = resources.getIdentifier("Theme.Dogo.Preferences", "style", packageName)
+            if (theme != 0) setTheme(theme)
+        }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 

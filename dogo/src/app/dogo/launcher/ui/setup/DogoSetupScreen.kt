@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Delete
@@ -53,6 +55,7 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -72,6 +75,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -120,6 +124,7 @@ fun DogoSetupScreen(
     var input by remember { mutableStateOf("") }
     var callExpanded by remember { mutableStateOf(false) }
     var renameOpen by remember { mutableStateOf(false) }
+    var inboxOpen by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -197,133 +202,150 @@ fun DogoSetupScreen(
         )
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawer,
-        modifier = modifier,
-        drawerContent = {
-            HistoryDrawer(
-                history = history,
-                openId = state.conversationId,
-                onNew = {
-                    viewModel.newConversation()
-                    scope.launch { drawer.close() }
-                },
-                onOpen = { id ->
-                    viewModel.openConversation(id)
-                    scope.launch { drawer.close() }
-                },
-                onDelete = viewModel::deleteConversation,
-                onRename = viewModel::renameConversation,
-            )
-        },
-    ) {
-        Box(Modifier.fillMaxSize()) {
-            Scaffold(
-                topBar = {
-                    TopAppBar(
-                        navigationIcon = {
-                            IconButton(onClick = { scope.launch { drawer.open() } }) {
-                                Icon(Icons.Filled.Menu, contentDescription = "Past conversations")
-                            }
-                        },
-                        title = {
-                            Column(Modifier.clickable(enabled = state.messages.isNotEmpty()) { renameOpen = true }) {
-                                Text(
-                                    if (state.messages.isEmpty()) "Dogo" else ConversationCodec.displayTitle(state.title, state.messages),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                state.modelName?.let { name ->
+    ChatWallpaper(modifier = modifier) {
+        ModalNavigationDrawer(
+            drawerState = drawer,
+            drawerContent = {
+                HistoryDrawer(
+                    history = history,
+                    openId = state.conversationId,
+                    onNew = {
+                        viewModel.newConversation()
+                        scope.launch { drawer.close() }
+                    },
+                    onOpen = { id ->
+                        viewModel.openConversation(id)
+                        scope.launch { drawer.close() }
+                    },
+                    onDelete = viewModel::deleteConversation,
+                    onRename = viewModel::renameConversation,
+                )
+            },
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                Scaffold(
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    topBar = {
+                        TopAppBar(
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = Color.Transparent,
+                                scrolledContainerColor = Color.Transparent,
+                            ),
+                            navigationIcon = {
+                                IconButton(onClick = { scope.launch { drawer.open() } }) {
+                                    Icon(Icons.Filled.Menu, contentDescription = "Past conversations")
+                                }
+                            },
+                            title = {
+                                Column(Modifier.clickable(enabled = state.messages.isNotEmpty()) { renameOpen = true }) {
                                     Text(
-                                        name,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        if (state.messages.isEmpty()) "Dogo" else ConversationCodec.displayTitle(state.title, state.messages),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    state.modelName?.let { name ->
+                                        Text(
+                                            name,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            },
+                            actions = {
+                                IconButton(onClick = { inboxOpen = !inboxOpen }) {
+                                    Icon(Icons.Filled.Notifications, contentDescription = "Notification inbox")
+                                }
+                                if (state.messages.isNotEmpty()) {
+                                    IconButton(onClick = viewModel::newConversation, enabled = !state.busy) {
+                                        Icon(Icons.Filled.Add, contentDescription = "New conversation")
+                                    }
+                                }
+                            },
+                        )
+                    },
+                ) { padding ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .imePadding()
+                            .padding(horizontal = 16.dp),
+                    ) {
+                        state.status?.let { StatusNote(it, onDismiss = viewModel::dismissStatus) }
+
+                        if (inboxOpen) {
+                            Column(Modifier.weight(1f).fillMaxWidth()) {
+                                TextButton(onClick = { inboxOpen = false }) { Text("Back to conversation") }
+                                app.dogo.launcher.alerts.AlertsInbox(onDiscuss = { context ->
+                                    if (viewModel.discussNotification(context)) inboxOpen = false
+                                })
+                            }
+                        } else if (state.messages.isEmpty() && !state.busy) {
+                            EmptyState(
+                                accent = accent,
+                                modifier = Modifier.weight(1f),
+                                onSuggestion = { input = it },
+                            )
+                        } else {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                contentPadding = PaddingValues(vertical = 12.dp),
+                            ) {
+                                items(state.messages) { message ->
+                                    MessageBubble(
+                                        message = message,
+                                        onApprove = viewModel::approve,
+                                        onDismiss = viewModel::dismiss,
                                     )
                                 }
-                            }
-                        },
-                        actions = {
-                            if (state.messages.isNotEmpty()) {
-                                IconButton(onClick = viewModel::newConversation, enabled = !state.busy) {
-                                    Icon(Icons.Filled.Add, contentDescription = "New conversation")
-                                }
-                            }
-                        },
-                    )
-                },
-            ) { padding ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .imePadding()
-                        .padding(horizontal = 16.dp),
-                ) {
-                    state.status?.let { StatusNote(it, onDismiss = viewModel::dismissStatus) }
-
-                    if (state.messages.isEmpty() && !state.busy) {
-                        EmptyState(
-                            accent = accent,
-                            modifier = Modifier.weight(1f),
-                            onSuggestion = { input = it },
-                        )
-                    } else {
-                        LazyColumn(
-                            state = listState,
-                            modifier = Modifier.weight(1f).fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = PaddingValues(vertical = 12.dp),
-                        ) {
-                            items(state.messages) { message ->
-                                MessageBubble(
-                                    message = message,
-                                    onApprove = viewModel::approve,
-                                    onDismiss = viewModel::dismiss,
-                                )
-                            }
-                            if (state.busy) {
-                                item {
-                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
-                                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                        Text("Thinking…", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 10.dp))
+                                if (state.busy) {
+                                    item {
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
+                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                            Text("Waiting for ${state.modelName ?: "your agent"}…", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 10.dp))
+                                        }
                                     }
                                 }
                             }
                         }
+
+                        Composer(
+                            input = input,
+                            onInput = { input = it },
+                            busy = state.busy,
+                            call = call,
+                            accent = accent,
+                            onSend = send,
+                            onTalk = talk,
+                            onMute = { viewModel.setVoiceMuted(call.phase != DogoCall.Phase.MUTED) },
+                            onExpand = { callExpanded = true },
+                            onCamera = {
+                                val dir = java.io.File(context.externalCacheDir ?: context.cacheDir, "photos").apply { mkdirs() }
+                                val file = java.io.File(dir, "look-${System.currentTimeMillis()}.jpg")
+                                photoFile = file
+                                val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                                runCatching { takePhoto.launch(uri) }
+                            },
+                            onGallery = {
+                                pickPhoto.launch(
+                                    androidx.activity.result.PickVisualMediaRequest(
+                                        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                    ),
+                                )
+                            },
+                        )
                     }
-
-                    Composer(
-                        input = input,
-                        onInput = { input = it },
-                        busy = state.busy,
-                        call = call,
-                        accent = accent,
-                        onSend = send,
-                        onTalk = talk,
-                        onMute = { viewModel.setVoiceMuted(call.phase != DogoCall.Phase.MUTED) },
-                        onExpand = { callExpanded = true },
-                        onCamera = {
-                            val dir = java.io.File(context.externalCacheDir ?: context.cacheDir, "photos").apply { mkdirs() }
-                            val file = java.io.File(dir, "look-${System.currentTimeMillis()}.jpg")
-                            photoFile = file
-                            val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                            runCatching { takePhoto.launch(uri) }
-                        },
-                        onGallery = {
-                            pickPhoto.launch(
-                                androidx.activity.result.PickVisualMediaRequest(
-                                    androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly,
-                                ),
-                            )
-                        },
-                    )
                 }
-            }
 
-            // The full call, over the chat. Down arrow returns to the strip.
-            AnimatedVisibility(callExpanded && call.phase != DogoCall.Phase.IDLE, enter = fadeIn(), exit = fadeOut()) {
-                CallScreen(accent = accent, onClose = { viewModel.stopVoice() }, onMinimize = { callExpanded = false })
+                // The full call, over the chat. Down arrow returns to the strip.
+                AnimatedVisibility(callExpanded && call.phase != DogoCall.Phase.IDLE, enter = fadeIn(), exit = fadeOut()) {
+                    CallScreen(accent = accent, onClose = { viewModel.stopVoice() }, onMinimize = { callExpanded = false })
+                }
             }
         }
     }
@@ -349,7 +371,9 @@ private fun EmptyState(accent: Color, modifier: Modifier = Modifier, onSuggestio
         listOf("Give me a cool dark home screen", "Add a clock widget", "Tidy my apps into folders").forEach { s ->
             Surface(
                 shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = chatGlassColor(MaterialTheme.colorScheme.surfaceVariant),
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                border = chatGlassBorder(),
                 modifier = Modifier.padding(vertical = 4.dp).clickable { onSuggestion(s) },
             ) { Text(s, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) }
         }
@@ -373,7 +397,9 @@ private fun Composer(
 ) {
     Surface(
         shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        color = chatGlassColor(MaterialTheme.colorScheme.surfaceContainerHigh),
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        border = chatGlassBorder(),
         modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).navigationBarsPadding(),
     ) {
         Column {
@@ -478,7 +504,11 @@ private fun HistoryDrawer(
     val now = System.currentTimeMillis()
     val shown = history.filter { it.matches(query) }
 
-    ModalDrawerSheet(Modifier.width(320.dp)) {
+    ModalDrawerSheet(
+        modifier = Modifier.width(320.dp),
+        drawerContainerColor = chatGlassColor(MaterialTheme.colorScheme.surfaceContainer, alpha = 0.96f),
+        drawerContentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Dogo", style = MaterialTheme.typography.headlineSmall)
@@ -624,7 +654,9 @@ private fun HistoryDrawer(
 @Composable
 private fun StatusNote(text: String, onDismiss: () -> Unit) {
     Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        color = chatGlassColor(MaterialTheme.colorScheme.secondaryContainer, alpha = 0.94f),
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        border = chatGlassBorder(),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clickable(onClick = onDismiss),
     ) {
@@ -655,7 +687,8 @@ private fun MessageBubble(
         return
     }
     val alignment = if (message.fromUser) Alignment.End else Alignment.Start
-    val bg = if (message.fromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val bg = chatGlassColor(if (message.fromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh, alpha = 0.92f)
+    val foreground = if (message.fromUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = alignment) {
         val photo = message.photo ?: message.photoFile?.let { name ->
             remember(name) { runCatching { android.graphics.BitmapFactory.decodeFile(Assistant.photoFile(name).path) }.getOrNull() }
@@ -673,11 +706,13 @@ private fun MessageBubble(
                 modifier = Modifier
                     .widthIn(max = 320.dp)
                     .background(bg, RoundedCornerShape(16.dp))
+                    .border(chatGlassBorder(), RoundedCornerShape(16.dp))
                     .padding(horizontal = 14.dp, vertical = 10.dp),
             ) {
-                Text(text, style = MaterialTheme.typography.bodyMedium)
+                Text(text, style = MaterialTheme.typography.bodyMedium, color = foreground)
             }
         }
+        if (!message.fromUser) AnswerSourceLinks(message.text)
         if (message.spoken) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp, start = 4.dp, end = 4.dp)) {
                 Icon(Icons.Outlined.Mic, contentDescription = null, modifier = Modifier.size(11.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -747,7 +782,14 @@ private fun ProposedActionCard(
 ) {
     val title = describe(proposal.action) ?: return
     val state = proposal.state
-    Card(modifier = Modifier.widthIn(max = 340.dp).padding(top = 6.dp)) {
+    Card(
+        modifier = Modifier.widthIn(max = 340.dp).padding(top = 6.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = chatGlassColor(MaterialTheme.colorScheme.surfaceContainerHigh, alpha = 0.94f),
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+        border = chatGlassBorder(),
+    ) {
         Column(Modifier.padding(12.dp)) {
             Text("Proposed change", style = MaterialTheme.typography.labelMedium)
             Text(title, style = MaterialTheme.typography.bodyMedium)

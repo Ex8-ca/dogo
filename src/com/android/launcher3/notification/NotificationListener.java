@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 The Android Open Source Project
+ * Modified by The Dogo Authors, 2026 (see NOTICE).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import app.dogo.launcher.alerts.DogoAlerts;
 import app.lawnchair.NotificationManager;
 
 /**
@@ -244,7 +246,7 @@ public class NotificationListener extends NotificationListenerService {
     }
 
     private void onNotificationSettingsChanged(boolean areNotificationDotsEnabled) {
-        if (!areNotificationDotsEnabled && sIsConnected) {
+        if (!areNotificationDotsEnabled && sIsConnected && !DogoAlerts.isEnabled(this)) {
             requestUnbind();
         }
     }
@@ -259,6 +261,7 @@ public class NotificationListener extends NotificationListenerService {
         super.onListenerDisconnected();
         Log.i(TAG, "onListenerDisconnected");
         sIsConnected = false;
+        DogoAlerts.onDisconnected(this);
         // The framework also calls onListenerDisconnected() from NotificationListenerService's
         // onDestroy(), so this can run before onListenerConnected() has initialised mSettingsCache.
         if (mSettingsCache != null) {
@@ -271,6 +274,7 @@ public class NotificationListener extends NotificationListenerService {
     @Override
     public void onNotificationPosted(final StatusBarNotification sbn) {
         if (sbn != null) {
+            DogoAlerts.onPosted(this, sbn);
             mWorkerHandler.obtainMessage(MSG_NOTIFICATION_POSTED, sbn).sendToTarget();
             mNotificationManager.onNotificationPosted(sbn);
         }
@@ -279,6 +283,7 @@ public class NotificationListener extends NotificationListenerService {
     @Override
     public void onNotificationRemoved(final StatusBarNotification sbn) {
         if (sbn != null) {
+            DogoAlerts.onRemoved(this, sbn);
             mWorkerHandler.obtainMessage(MSG_NOTIFICATION_REMOVED, sbn).sendToTarget();
             mNotificationManager.onNotificationRemoved(sbn);
         }

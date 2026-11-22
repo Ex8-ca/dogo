@@ -198,7 +198,7 @@ object Assistant {
      */
     fun nameIfNeeded(ask: suspend (system: String, turns: List<app.dogo.launcher.agent.backend.ChatTurn>) -> String?) {
         val s = state.value
-        if (title != null || titleAsked || s.messages.count { !it.note } < 2) return
+        if (title != null || titleAsked || s.messages.any { it.notificationContext } || s.messages.count { !it.note } < 2) return
         titleAsked = true
         val id = s.conversationId
         val turns = TitleMaker.turns(s.messages)
@@ -232,7 +232,7 @@ object Assistant {
 
     /** Wraps [actions] as proposals, each checked against Dogo Options and what access the phone has. */
     suspend fun proposalsFor(actions: List<Action>): List<Proposal> {
-        if (actions.isEmpty()) return emptyList()
+        if (actions.isEmpty() || state.value.messages.any { it.notificationContext }) return emptyList()
         val options = OptionsStore(app).load()
         val availability = SystemAccess(app).availability()
         return actions.map { Proposal(nextProposalId++, it, stateFor(it, options, availability)) }
@@ -240,6 +240,7 @@ object Assistant {
 
     /** Carries out an approved proposal, then tells a live call how it went. */
     fun approve(id: Long, onDone: ((ActionApplier.Outcome) -> Unit)? = null) {
+        if (state.value.messages.any { it.notificationContext }) return
         val proposal = find(id) ?: return
         if (proposal.state !is ActionState.Ready) return
         if (!OptionsStore(app).load().isAllowed(proposal.action)) {

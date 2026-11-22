@@ -62,7 +62,20 @@ internal object RemoteHttp {
 
     private suspend fun execute(client: OkHttpClient, request: Request): JSONObject = withContext(Dispatchers.IO) {
         try {
-            client.newCall(request).execute().use { response ->
+            val call = client.newCall(request)
+            val response = kotlinx.coroutines.suspendCancellableCoroutine<okhttp3.Response> { continuation ->
+                continuation.invokeOnCancellation { call.cancel() }
+                call.enqueue(object : okhttp3.Callback {
+                    override fun onFailure(call: okhttp3.Call, e: IOException) {
+                        if (continuation.isActive) continuation.resumeWith(Result.failure(e))
+                    }
+
+                    override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                        continuation.resume(response) { _, value, _ -> value.close() }
+                    }
+                })
+            }
+            response.use {
                 val text = response.body.string()
                 if (!response.isSuccessful) {
                     throw AgentBackendException(describeHttp(response.code, text, request.url))

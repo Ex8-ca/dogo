@@ -86,6 +86,7 @@ object ConversationCodec {
         .put("at", m.at)
         .apply {
             if (m.spoken) put("spoken", true)
+            if (m.notificationContext) put("notification_context", true)
             if (m.note) put("note", true)
             m.photoFile?.let { put("photo", it) }
             if (m.proposals.isNotEmpty()) put("proposals", JSONArray().apply { m.proposals.forEach { put(proposalJson(it)) } })
@@ -99,6 +100,7 @@ object ConversationCodec {
             proposals = (0 until props.length()).mapNotNull { i -> props.optJSONObject(i)?.let(::proposal) },
             at = o.optLong("at"),
             spoken = o.optBoolean("spoken"),
+            notificationContext = o.optBoolean("notification_context") || o.optString("text").contains("untrusted notification data"),
             note = o.optBoolean("note"),
             photoFile = o.optString("photo").ifBlank { null },
         )
