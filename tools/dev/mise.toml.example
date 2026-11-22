@@ -1,0 +1,10 @@
+[tools]
+# Lawnchair 16 (dogo/) requires JDK 21 — matches .github/workflows/ci.yml
+# which uses distribution 'zulu', java-version 21.
+java = "zulu-21.52.203.0"
+
+[env]
+# Point the Android Gradle Plugin at our local SDK (no local.properties in
+# the fork, so ANDROID_HOME must come from the environment).
+ANDROID_HOME = "{{config_root}}/.android-sdk"
+ANDROID_SDK_ROOT = "{{config_root}}/.android-sdk"
