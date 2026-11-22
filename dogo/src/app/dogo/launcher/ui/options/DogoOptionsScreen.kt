@@ -5,6 +5,8 @@
 
 package app.dogo.launcher.ui.options
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -61,9 +63,13 @@ import app.dogo.launcher.agent.backend.AgentConfig
 import app.dogo.launcher.agent.backend.AgentPreset
 import app.dogo.launcher.agent.backend.KeyRequirement
 import app.dogo.launcher.agent.backend.ResolvedAgent
+import app.dogo.launcher.agent.backend.Termux
+import app.dogo.launcher.agent.backend.TermuxCli
 import app.dogo.launcher.llm.ModelCatalog
+import app.dogo.launcher.plugins.PluginRegistry
 import app.dogo.launcher.privilege.Tier
 import app.dogo.launcher.privilege.TierStatus
+import app.dogo.launcher.themes.OmarchyThemeSource
 
 /**
  * Lets the user choose which agent Dogo talks to, which on-device model it
@@ -79,8 +85,14 @@ fun DogoOptionsScreen(
 
     LifecycleResumeEffect(viewModel) {
         viewModel.refreshAccess()
+        viewModel.refreshPlugins()
         onPauseOrDispose { }
     }
+
+    val termuxPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        viewModel.refreshAccess()
+    }
+    viewModel.onRequestTermuxPermission = { termuxPermission.launch(Termux.PERMISSION) }
 
     Scaffold(
         modifier = modifier,
@@ -116,7 +128,16 @@ fun DogoOptionsScreen(
                 )
             }
 
-            if (!state.options.isOnDevice) {
+            if (state.options.agent == AgentCatalog.TERMUX) {
+                TermuxAgentCard(
+                    selectedCli = state.options.resolvedAgent().model,
+                    termux = state.termux,
+                    connection = state.connection,
+                    onPick = { id -> viewModel.updateAgentConfig { it.copy(model = id) } },
+                    onRequestPermission = viewModel::requestTermuxPermission,
+                    onTest = viewModel::testConnection,
+                )
+            } else if (!state.options.isOnDevice) {
                 RemoteAgentCard(
                     preset = state.options.agent,
                     config = state.options.configFor(state.options.agent),
@@ -178,6 +199,22 @@ fun DogoOptionsScreen(
             state.access.filter { it.tier != Tier.NONE }.forEach { status ->
                 AccessRow(status, onRequest = { viewModel.requestAccess(status.tier) })
             }
+
+            SectionLabel("Omarchy themes")
+            ThemesSection(
+                state = state.themes,
+                onLoad = viewModel::loadOfficialThemes,
+                onApply = viewModel::applyTheme,
+                onApplyCommunity = viewModel::applyCommunityTheme,
+                onWallpaperToggle = viewModel::setThemeWallpaper,
+            )
+
+            SectionLabel("Plugins")
+            PluginsSection(
+                plugins = state.plugins,
+                broken = state.brokenPlugins,
+                onToggle = viewModel::setPluginEnabled,
+            )
 
             SectionLabel("What Dogo may change")
             Text(
@@ -502,6 +539,212 @@ private fun AccessRow(status: TierStatus, onRequest: () -> Unit) {
         when {
             status.available -> Icon(Icons.Default.Check, "Available", tint = MaterialTheme.colorScheme.primary)
             requestable -> TextButton(onClick = onRequest) { Text("Allow") }
+        }
+    }
+}
+
+@Composable
+private fun ThemesSection(
+    state: DogoOptionsViewModel.ThemesState,
+    onLoad: () -> Unit,
+    onApply: (OmarchyThemeSource.ThemeRef) -> Unit,
+    onApplyCommunity: (String) -> Unit,
+    onWallpaperToggle: (Boolean) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        var community by remember { mutableStateOf("") }
+        Text(
+            "Use an Omarchy desktop theme on Dogo: its light/dark mode, accent colour and wallpaper.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("Also set the wallpaper", style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = state.setWallpaper, onCheckedChange = onWallpaperToggle)
+        }
+        if (state.official.isEmpty()) {
+            Button(onClick = onLoad, enabled = !state.loading) {
+                Text(if (state.loading) "Loading…" else "Browse official themes")
+            }
+        }
+        state.official.forEach { ref ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = state.applying == null) { onApply(ref) }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(ref.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                if (state.applying == ref.name) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                }
+            }
+        }
+        OutlinedTextField(
+            value = community,
+            onValueChange = { community = it },
+            label = { Text("Community theme (GitHub owner/repo)") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            trailingIcon = {
+                TextButton(onClick = { onApplyCommunity(community) }, enabled = community.isNotBlank() && state.applying == null) {
+                    Text("Apply")
+                }
+            },
+        )
+        state.message?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (state.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PluginsSection(
+    plugins: List<DogoOptionsViewModel.PluginRow>,
+    broken: List<PluginRegistry.Broken>,
+    onToggle: (PluginRegistry.Installed, Boolean) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (plugins.isEmpty() && broken.isEmpty()) {
+            Text(
+                "No plugins installed. Plugins are apps with a dogo-plugin.json; see docs/plugins.md.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        plugins.forEach { row ->
+            val m = row.plugin.manifest
+            Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Column(Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${m.name} ${m.version}", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "${m.author.ifBlank { row.plugin.packageName }} · ${m.license}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(checked = row.enabled, onCheckedChange = { onToggle(row.plugin, it) })
+                    }
+                    if (m.description.isNotBlank()) Text(m.description, style = MaterialTheme.typography.bodySmall)
+                    if (m.capabilities.isNotEmpty()) {
+                        Text(
+                            "Can: " + m.capabilities.joinToString { it.title.lowercase() },
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                    if (m.actions.isNotEmpty()) {
+                        Text(
+                            "Actions: " + m.actions.joinToString { it.name },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (row.needsReapproval) {
+                        Text(
+                            "Updated and now asks for something new. Switch it on again to approve.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+        }
+        broken.forEach {
+            Text(
+                "${it.packageName}: ${it.reason}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TermuxAgentCard(
+    selectedCli: String,
+    termux: DogoOptionsViewModel.TermuxState,
+    connection: DogoOptionsViewModel.ConnectionCheck,
+    onPick: (String) -> Unit,
+    onRequestPermission: () -> Unit,
+    onTest: () -> Unit,
+) {
+    Card(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("CLI agent in Termux", style = MaterialTheme.typography.labelLarge)
+            when {
+                !termux.installed -> Text(
+                    "Termux isn't installed. Get it from F-Droid, then come back.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+
+                !termux.permitted -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Dogo needs permission to run commands in Termux.",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onRequestPermission) { Text("Allow") }
+                }
+
+                else -> Text(
+                    "In Termux, make sure ~/.termux/termux.properties has allow-external-apps = true.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TermuxCli.all.forEach { cli ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onPick(cli.id) },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = selectedCli == cli.id, onClick = { onPick(cli.id) })
+                    Column(Modifier.weight(1f)) {
+                        Text(cli.displayName, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Install: ${cli.installHint}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(
+                    onClick = onTest,
+                    enabled = termux.installed && termux.permitted && connection !is DogoOptionsViewModel.ConnectionCheck.Running,
+                ) { Text("Test connection") }
+                if (connection is DogoOptionsViewModel.ConnectionCheck.Running) {
+                    CircularProgressIndicator(Modifier.padding(start = 12.dp).size(20.dp), strokeWidth = 2.dp)
+                }
+            }
+            when (connection) {
+                is DogoOptionsViewModel.ConnectionCheck.Ok -> Text(
+                    "Connected. The agent replied: \"${connection.reply}\"",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+
+                is DogoOptionsViewModel.ConnectionCheck.Failed -> Text(
+                    connection.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+
+                else -> Unit
+            }
         }
     }
 }

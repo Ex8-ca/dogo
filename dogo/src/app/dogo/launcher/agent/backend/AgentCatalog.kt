@@ -15,6 +15,9 @@ enum class AgentKind {
 
     /** Anthropic's Messages API. */
     ANTHROPIC,
+
+    /** A command-line agent run inside Termux ([TermuxCli]). */
+    TERMUX_CLI,
 }
 
 /** Whether an agent needs an API key. */
@@ -37,7 +40,10 @@ data class AgentPreset(
     val key: KeyRequirement = KeyRequirement.NONE,
     val keyHint: String = "",
 ) {
-    /** True when using this agent sends the conversation off the phone. */
+    /**
+     * True when the conversation leaves Dogo for a server. A Termux CLI agent
+     * runs on the phone but usually calls a hosted model, so it counts.
+     */
     val leavesDevice: Boolean
         get() = kind != AgentKind.ON_DEVICE
 }
@@ -120,7 +126,16 @@ object AgentCatalog {
         key = KeyRequirement.OPTIONAL,
     )
 
-    val all: List<AgentPreset> = listOf(ON_DEVICE, HERMES, OPENROUTER, GROQ, ANTHROPIC, OLLAMA, CUSTOM)
+    /** Omarchy-style: run a CLI agent the user installed and signed in to in Termux. */
+    val TERMUX = AgentPreset(
+        id = "termux-cli",
+        displayName = "CLI agent in Termux",
+        kind = AgentKind.TERMUX_CLI,
+        blurb = "Claude Code, OpenCode, Codex or Hermes installed in Termux, signed in with your own account.",
+        defaultModel = TermuxCli.CLAUDE.id,
+    )
+
+    val all: List<AgentPreset> = listOf(ON_DEVICE, HERMES, OPENROUTER, GROQ, ANTHROPIC, OLLAMA, TERMUX, CUSTOM)
 
     fun find(id: String?): AgentPreset? = all.firstOrNull { it.id == id }
 }

@@ -15,12 +15,16 @@ import app.dogo.launcher.agent.backend.AgentConfig
 import app.dogo.launcher.agent.backend.AgentPreset
 import app.dogo.launcher.agent.backend.ChatTurn
 import app.dogo.launcher.agent.backend.ModelLister
+import app.dogo.launcher.agent.backend.Termux
 import app.dogo.launcher.llm.HardwareProfile
 import app.dogo.launcher.llm.ModelCatalog
 import app.dogo.launcher.llm.ModelDownloader
+import app.dogo.launcher.plugins.PluginRegistry
+import app.dogo.launcher.plugins.PluginStore
 import app.dogo.launcher.privilege.SystemAccess
 import app.dogo.launcher.privilege.Tier
 import app.dogo.launcher.privilege.TierStatus
+import app.dogo.launcher.themes.OmarchyThemeSource
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,10 +60,27 @@ class DogoOptionsViewModel(
         data class Failed(val message: String) : ConnectionCheck
     }
 
+    data class TermuxState(val installed: Boolean = false, val permitted: Boolean = false)
+
+    data class PluginRow(val plugin: PluginRegistry.Installed, val enabled: Boolean, val needsReapproval: Boolean)
+
+    data class ThemesState(
+        val loading: Boolean = false,
+        val official: List<OmarchyThemeSource.ThemeRef> = emptyList(),
+        val applying: String? = null,
+        val message: String? = null,
+        val isError: Boolean = false,
+        val setWallpaper: Boolean = true,
+    )
+
     data class UiState(
         val options: AgentOptions = AgentOptions(),
         val connection: ConnectionCheck = ConnectionCheck.Idle,
         val access: List<TierStatus> = emptyList(),
+        val plugins: List<PluginRow> = emptyList(),
+        val brokenPlugins: List<PluginRegistry.Broken> = emptyList(),
+        val themes: ThemesState = ThemesState(),
+        val termux: TermuxState = TermuxState(),
         val recommendation: HardwareProfile.Recommendation? = null,
         val models: List<ModelRow> = emptyList(),
         val activeDownload: String? = null,
@@ -73,6 +94,9 @@ class DogoOptionsViewModel(
     private var downloadJob: Job? = null
     private var connectionJob: Job? = null
     private val systemAccess = SystemAccess(application)
+    private val pluginRegistry = PluginRegistry(application)
+    private val pluginStore = PluginStore(application)
+    private val themeSource = OmarchyThemeSource()
 
     private val _uiState = MutableStateFlow(UiState(options = store.load()))
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -82,10 +106,92 @@ class DogoOptionsViewModel(
         _uiState.update { it.copy(recommendation = recommendation) }
         refresh()
         refreshAccess()
+        refreshPlugins()
+    }
+
+    fun refreshPlugins() {
+        viewModelScope.launch {
+            val scan = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { pluginRegistry.scan() }
+            _uiState.update { state ->
+                state.copy(
+                    plugins = scan.plugins.map { PluginRow(it, pluginStore.isEnabled(it), pluginStore.needsReapproval(it)) },
+                    brokenPlugins = scan.broken,
+                )
+            }
+        }
+    }
+
+    fun setPluginEnabled(plugin: PluginRegistry.Installed, enabled: Boolean) {
+        pluginStore.setEnabled(plugin, enabled)
+        refreshPlugins()
+    }
+
+    fun loadOfficialThemes() {
+        if (_uiState.value.themes.loading) return
+        _uiState.update { it.copy(themes = it.themes.copy(loading = true, message = null)) }
+        viewModelScope.launch {
+            themeSource.listOfficial().fold(
+                onSuccess = { refs -> _uiState.update { it.copy(themes = it.themes.copy(loading = false, official = refs)) } },
+                onFailure = { e ->
+                    _uiState.update { it.copy(themes = it.themes.copy(loading = false, message = e.message, isError = true)) }
+                },
+            )
+        }
+    }
+
+    fun setThemeWallpaper(enabled: Boolean) {
+        _uiState.update { it.copy(themes = it.themes.copy(setWallpaper = enabled)) }
+    }
+
+    fun applyTheme(ref: OmarchyThemeSource.ThemeRef) = applyThemeRef(ref)
+
+    /** Accepts `owner/repo` or a GitHub URL for a community theme. */
+    fun applyCommunityTheme(input: String) {
+        val ref = themeSource.parseCommunityRef(input)
+        if (ref == null) {
+            _uiState.update {
+                it.copy(themes = it.themes.copy(message = "Enter a GitHub repo like owner/omarchy-xyz-theme.", isError = true))
+            }
+            return
+        }
+        applyThemeRef(ref)
+    }
+
+    private fun applyThemeRef(ref: OmarchyThemeSource.ThemeRef) {
+        if (_uiState.value.themes.applying != null) return
+        _uiState.update { it.copy(themes = it.themes.copy(applying = ref.name, message = null)) }
+        val withWallpaper = _uiState.value.themes.setWallpaper
+        viewModelScope.launch {
+            val result = runCatching {
+                val loaded = themeSource.load(ref).getOrThrow()
+                themeSource.apply(getApplication(), loaded, withWallpaper)
+            }
+            _uiState.update {
+                it.copy(
+                    themes = it.themes.copy(
+                        applying = null,
+                        message = result.getOrNull() ?: result.exceptionOrNull()?.message,
+                        isError = result.isFailure,
+                    ),
+                )
+            }
+        }
+    }
+
+    /**
+     * RUN_COMMAND is a runtime permission Termux defines, so it has to be
+     * requested from an Activity; the screen does that and calls back here.
+     */
+    var onRequestTermuxPermission: (() -> Unit)? = null
+
+    fun requestTermuxPermission() {
+        onRequestTermuxPermission?.invoke()
     }
 
     /** Re-reads which access tiers are available. Cheap; call on resume. */
     fun refreshAccess() {
+        val app = getApplication<Application>()
+        _uiState.update { it.copy(termux = TermuxState(Termux.isInstalled(app), Termux.hasPermission(app))) }
         viewModelScope.launch {
             val statuses = systemAccess.statuses()
             _uiState.update { it.copy(access = statuses) }
@@ -154,7 +260,7 @@ class DogoOptionsViewModel(
             _uiState.update { it.copy(connection = ConnectionCheck.Failed(problem.message)) }
             return
         }
-        val backend = AgentBackends.remote(agent) ?: return
+        val backend = AgentBackends.create(getApplication(), agent) ?: return
         connectionJob?.cancel()
         _uiState.update { it.copy(connection = ConnectionCheck.Running) }
         connectionJob = viewModelScope.launch {

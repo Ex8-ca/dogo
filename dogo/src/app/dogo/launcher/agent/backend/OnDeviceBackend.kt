@@ -45,8 +45,14 @@ object AgentBackends {
 
     /** The remote backend for [agent], or null for the on-device agent. */
     fun remote(agent: ResolvedAgent, client: OkHttpClient = RemoteHttp.defaultClient): AgentBackend? = when (agent.preset.kind) {
-        AgentKind.ON_DEVICE -> null
+        AgentKind.ON_DEVICE, AgentKind.TERMUX_CLI -> null
         AgentKind.OPENAI_COMPATIBLE -> OpenAiCompatibleBackend(agent, client)
         AgentKind.ANTHROPIC -> AnthropicBackend(agent, client)
+    }
+
+    /** Any non-on-device backend, including ones that need a Context. */
+    fun create(context: android.content.Context, agent: ResolvedAgent): AgentBackend? = when (agent.preset.kind) {
+        AgentKind.TERMUX_CLI -> TermuxCli.find(agent.model)?.let { TermuxCliBackend(context, it) }
+        else -> remote(agent)
     }
 }

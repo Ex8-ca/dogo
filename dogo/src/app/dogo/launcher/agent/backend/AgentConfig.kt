@@ -73,6 +73,9 @@ data class ResolvedAgent(
     /** What is wrong with this configuration, if anything. Empty means usable. */
     fun problems(): List<AgentProblem> {
         if (preset.kind == AgentKind.ON_DEVICE) return emptyList()
+        if (preset.kind == AgentKind.TERMUX_CLI) {
+            return if (TermuxCli.find(model) == null) listOf(AgentProblem.CLI_UNKNOWN) else emptyList()
+        }
         val problems = mutableListOf<AgentProblem>()
         val url = baseUrl.toHttpUrlOrNull()
         when {
@@ -95,6 +98,7 @@ enum class AgentProblem(val message: String) {
     ),
     MODEL_MISSING("Choose a model. Test the connection to see what the server offers."),
     KEY_MISSING("This agent needs an API key."),
+    CLI_UNKNOWN("Choose which CLI agent to run: claude, opencode, codex or hermes."),
 }
 
 fun AgentPreset.resolve(config: AgentConfig?): ResolvedAgent = ResolvedAgent(
