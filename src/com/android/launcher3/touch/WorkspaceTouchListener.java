@@ -14,6 +14,7 @@
  * limitations under the License.
  *
  * Modifications copyright 2025, Lawnchair
+ * Modified by The Dogo Authors, 2026 (see NOTICE).
  */
 package com.android.launcher3.touch;
 
@@ -54,6 +55,8 @@ import com.android.launcher3.testing.TestLogging;
 import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.util.TouchUtil;
 
+import app.dogo.launcher.ring.DogoRing;
+import app.dogo.launcher.ring.DogoRingView;
 import app.lawnchair.LawnchairLauncher;
 
 /**
@@ -81,6 +84,12 @@ public class WorkspaceTouchListener extends GestureDetector.SimpleOnGestureListe
 
     private int mLongPressState = STATE_CANCELLED;
 
+    // Dogo: hold still on empty space and the Dogo Ring opens under the finger.
+    private DogoRingView mRing;
+    private float mRingRawX;
+    private float mRingRawY;
+    private final Runnable mOpenRing = this::openRing;
+
     private final GestureDetector mGestureDetector;
     private boolean mDoubleTapPending = false;
 
@@ -101,6 +110,16 @@ public class WorkspaceTouchListener extends GestureDetector.SimpleOnGestureListe
         int action = ev.getActionMasked();
         if (action == ACTION_DOWN) {
             mDoubleTapPending = false;
+            mRing = null;
+        }
+
+        if (mRing != null) {
+            mRing.onFingerEvent(ev);
+            if (action == ACTION_UP || action == ACTION_CANCEL) {
+                mRing = null;
+                cancelLongPress();
+            }
+            return true;
         }
 
         mGestureDetector.onTouchEvent(ev);
@@ -131,6 +150,12 @@ public class WorkspaceTouchListener extends GestureDetector.SimpleOnGestureListe
             if (handleLongPress) {
                 mLongPressState = STATE_REQUESTED;
                 mTouchDownPoint.set(ev.getX(), ev.getY());
+                Long holdMs = DogoRing.INSTANCE.holdMsOrNull(mLauncher);
+                if (holdMs != null) {
+                    mRingRawX = ev.getRawX();
+                    mRingRawY = ev.getRawY();
+                    mWorkspace.postDelayed(mOpenRing, holdMs);
+                }
                 // Mouse right button's ACTION_DOWN should immediately show menu
                 if (TouchUtil.isMouseRightClickDownOrMove(ev)) {
                     maybeShowMenu();
@@ -225,6 +250,21 @@ public class WorkspaceTouchListener extends GestureDetector.SimpleOnGestureListe
 
     private void cancelLongPress() {
         mLongPressState = STATE_CANCELLED;
+        mWorkspace.removeCallbacks(mOpenRing);
+    }
+
+    private void openRing() {
+        if (mLongPressState != STATE_REQUESTED || !canHandleLongPress() || mWorkspace.isHandlingTouch()) {
+            return;
+        }
+        DogoRingView ring = DogoRing.INSTANCE.open(mLauncher, mRingRawX, mRingRawY);
+        if (ring == null) return;
+        mRing = ring;
+        mLongPressState = STATE_COMPLETED;
+        mWorkspace.getParent().requestDisallowInterceptTouchEvent(true);
+        MotionEvent cancel = DogoRing.INSTANCE.cancelEvent();
+        mWorkspace.onTouchEvent(cancel);
+        cancel.recycle();
     }
 
     @Override
