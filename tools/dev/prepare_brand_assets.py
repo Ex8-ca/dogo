@@ -52,12 +52,17 @@ def main():
         circle=Image.new("L",(size,size)); ImageDraw.Draw(circle).ellipse((0,0,size-1,size-1),fill=255)
         rounded=icon.resize((size,size),Image.Resampling.LANCZOS); rounded.putalpha(circle)
         rounded.save(out/"ic_launcher_home_round.png")
-    # Fit the 9:16 illustration in a taller phone canvas rather than cropping
-    # its edge panels. Reserve a quiet bottom strip for launcher controls.
+    # The 9:16 illustration fills the phone's width, so the side cards are never
+    # cropped. The faded bottom row is repeated down to the taller phone canvas,
+    # which leaves the dock and page dots over plain background, not the wordmark.
     art=Image.open(args.wallpaper).convert("RGB")
-    art=ImageOps.contain(art, (1440,2560), Image.Resampling.LANCZOS)
-    canvas=Image.new("RGB",(1440,2880),art.getpixel((0,0)))
-    canvas.paste(art,((1440-art.width)//2,0))
+    width,height=1440,2880
+    art=art.resize((width,round(art.height*width/art.width)),Image.Resampling.LANCZOS)
+    canvas=Image.new("RGB",(width,height))
+    canvas.paste(art,(0,0))
+    edge=art.crop((0,art.height-1,width,art.height))
+    for y in range(art.height,height):
+        canvas.paste(edge,(0,y))
     canvas.save(target/"dogo_brand_wallpaper.webp",quality=95)
     preview=Image.new("RGB",(864,432),(30,30,30))
     for index,shape in enumerate(["circle","round"]):
