@@ -49,6 +49,7 @@ object ActionRequirements {
         is Action.HideApp,
         is Action.CreateFolder,
         is Action.SetWallpaper,
+        is Action.ArrangeRing,
         -> Need.Launcher
 
         is Action.SetAnimationScale -> {

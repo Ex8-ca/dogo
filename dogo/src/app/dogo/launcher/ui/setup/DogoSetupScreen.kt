@@ -223,13 +223,26 @@ internal fun stripActionJson(text: String): String = text.lines()
 
 internal fun describe(action: Action): String? = when (action) {
     is Action.SetTheme -> "Set Dogo's theme to ${action.theme}"
+
     is Action.SetSystemDarkMode -> if (action.enabled) "Turn on the phone's dark mode" else "Turn off the phone's dark mode"
+
     is Action.SetWallpaper -> "Set wallpaper to ${action.color}"
+
     is Action.AddToHome -> "Add ${action.pkg} to home"
+
     is Action.HideApp -> "Hide ${action.pkg}"
+
     is Action.CreateFolder -> "Create folder \"${action.name}\" (${action.apps.size} apps)"
+
     is Action.SetAnimationScale -> "Set animations to ${action.scale}x"
+
+    is Action.ArrangeRing -> buildString {
+        if (action.groups.isNotEmpty()) append("Arrange the ring: ${action.groups.joinToString { "${it.name} (${it.apps.size})" }}")
+        if (action.style != null) append(if (isEmpty()) "Set the ring style to ${action.style}" else ", ${action.style} style")
+    }
+
     is Action.Plugin -> "${action.name.replace('_', ' ').replaceFirstChar { it.uppercase() }} (${action.pluginId})"
+
     Action.Unknown -> null
 }
 

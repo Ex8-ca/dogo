@@ -70,6 +70,7 @@ class AgentOptionsTest {
             Action.SetAnimationScale(0.5f),
             Action.AddToHome("com.example"),
             Action.HideApp("com.example"),
+            Action.ArrangeRing(listOf(app.dogo.launcher.ring.RingGroup("Talk", listOf("a.b"))), null),
             Action.Plugin("io.github.you.timer", "start_timer", "{}"),
         )
         for (action in wireActions) {

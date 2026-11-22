@@ -69,6 +69,8 @@ import app.dogo.launcher.llm.ModelCatalog
 import app.dogo.launcher.plugins.PluginRegistry
 import app.dogo.launcher.privilege.Tier
 import app.dogo.launcher.privilege.TierStatus
+import app.dogo.launcher.ring.RingConfig
+import app.dogo.launcher.ring.RingStyle
 import app.dogo.launcher.themes.OmarchyThemeSource
 
 /**
@@ -199,6 +201,12 @@ fun DogoOptionsScreen(
             state.access.filter { it.tier != Tier.NONE }.forEach { status ->
                 AccessRow(status, onRequest = { viewModel.requestAccess(status.tier) })
             }
+
+            SectionLabel("Dogo Ring")
+            RingSection(
+                config = state.ring,
+                onChange = viewModel::updateRing,
+            )
 
             SectionLabel("Omarchy themes")
             ThemesSection(
@@ -744,6 +752,49 @@ private fun TermuxAgentCard(
                 )
 
                 else -> Unit
+            }
+        }
+    }
+}
+
+@Composable
+private fun RingSection(config: RingConfig, onChange: ((RingConfig) -> RingConfig) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Touch and hold to open the ring", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "A radial menu opens under your thumb. Slide to an app and let go. " +
+                        "Long-press options (wallpaper, widgets) are under Dogo > Home.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = config.enabled, onCheckedChange = { on -> onChange { it.copy(enabled = on) } })
+        }
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            RingStyle.entries.forEachIndexed { i, style ->
+                SegmentedButton(
+                    selected = config.style == style,
+                    onClick = { onChange { it.copy(style = style) } },
+                    shape = SegmentedButtonDefaults.itemShape(i, RingStyle.entries.size),
+                    enabled = config.enabled,
+                ) { Text(style.title) }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (config.isAutomatic) {
+                    "Apps are grouped automatically. Ask Dogo to arrange them your way."
+                } else {
+                    "Your groups: " + config.groups.orEmpty().joinToString { it.name }
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            if (!config.isAutomatic) {
+                TextButton(onClick = { onChange { it.copy(groups = null) } }) { Text("Reset") }
             }
         }
     }

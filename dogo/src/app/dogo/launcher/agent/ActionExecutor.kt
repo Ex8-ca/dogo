@@ -5,6 +5,8 @@
 
 package app.dogo.launcher.agent
 
+import app.dogo.launcher.ring.RingConfig
+import app.dogo.launcher.ring.RingGroup
 import org.json.JSONObject
 
 /**
@@ -33,6 +35,12 @@ sealed class Action {
     data class CreateFolder(val name: String, val apps: List<String>) : Action()
 
     data class SetAnimationScale(val scale: Float) : Action()
+
+    /**
+     * Arranges the Dogo Ring (the radial menu on the home screen): named
+     * groups of apps and, optionally, its style.
+     */
+    data class ArrangeRing(val groups: List<RingGroup>, val style: String?) : Action()
 
     /**
      * An action offered by an enabled plugin, named `pluginId:action`.
@@ -142,6 +150,13 @@ object ActionExecutor {
                 Action.CreateFolder(params.optString("name"), apps)
             }
 
+            "arrange_ring" -> {
+                val groups = params.optJSONArray("groups")?.let { RingConfig.parseGroups(it) }.orEmpty()
+                val style = params.optString("style").trim().ifEmpty { null }
+                if (groups.isEmpty() && style == null) return Action.Unknown
+                Action.ArrangeRing(groups, style)
+            }
+
             else -> pluginAction(name, params)
         }
     }
@@ -234,6 +249,12 @@ object ActionExecutor {
 
         is Action.SetAnimationScale ->
             """{"action":"set_animation_scale","params":{"scale":${action.scale}}}"""
+
+        is Action.ArrangeRing -> {
+            val groups = action.groups.joinToString(",", "[", "]") { g -> """{"name":${quote(g.name)},"apps":${g.apps.toJsonArray()}}""" }
+            val style = action.style?.let { ""","style":${quote(it)}""" }.orEmpty()
+            """{"action":"arrange_ring","params":{"groups":$groups$style}}"""
+        }
 
         is Action.Plugin -> """{"action":${quote("${action.pluginId}:${action.name}")},"params":${action.paramsJson}}"""
 

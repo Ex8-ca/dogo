@@ -34,6 +34,7 @@ class SetupChatAgentTest {
             "set_theme",
             "set_system_dark_mode",
             "set_animation_scale",
+            "arrange_ring",
         )
 
         documented.forEach { action ->
@@ -145,6 +146,7 @@ class SetupChatAgentTest {
         "set_theme" -> """{"theme":"dark"}"""
         "set_animation_scale" -> """{"scale":0.5}"""
         "set_system_dark_mode" -> """{"enabled":true}"""
+        "arrange_ring" -> """{"style":"glow"}"""
         else -> "{}"
     }
 }

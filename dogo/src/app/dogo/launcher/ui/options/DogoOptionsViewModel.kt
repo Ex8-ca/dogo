@@ -24,6 +24,8 @@ import app.dogo.launcher.plugins.PluginStore
 import app.dogo.launcher.privilege.SystemAccess
 import app.dogo.launcher.privilege.Tier
 import app.dogo.launcher.privilege.TierStatus
+import app.dogo.launcher.ring.DogoRing
+import app.dogo.launcher.ring.RingConfig
 import app.dogo.launcher.themes.OmarchyThemeSource
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,6 +83,7 @@ class DogoOptionsViewModel(
         val brokenPlugins: List<PluginRegistry.Broken> = emptyList(),
         val themes: ThemesState = ThemesState(),
         val termux: TermuxState = TermuxState(),
+        val ring: RingConfig = RingConfig(),
         val recommendation: HardwareProfile.Recommendation? = null,
         val models: List<ModelRow> = emptyList(),
         val activeDownload: String? = null,
@@ -184,6 +187,12 @@ class DogoOptionsViewModel(
      */
     var onRequestTermuxPermission: (() -> Unit)? = null
 
+    fun updateRing(change: (RingConfig) -> RingConfig) {
+        val app = getApplication<Application>()
+        DogoRing.update(app, change)
+        _uiState.update { it.copy(ring = DogoRing.config(app)) }
+    }
+
     fun requestTermuxPermission() {
         onRequestTermuxPermission?.invoke()
     }
@@ -191,7 +200,12 @@ class DogoOptionsViewModel(
     /** Re-reads which access tiers are available. Cheap; call on resume. */
     fun refreshAccess() {
         val app = getApplication<Application>()
-        _uiState.update { it.copy(termux = TermuxState(Termux.isInstalled(app), Termux.hasPermission(app))) }
+        _uiState.update {
+            it.copy(
+                termux = TermuxState(Termux.isInstalled(app), Termux.hasPermission(app)),
+                ring = DogoRing.config(app),
+            )
+        }
         viewModelScope.launch {
             val statuses = systemAccess.statuses()
             _uiState.update { it.copy(access = statuses) }

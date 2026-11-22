@@ -112,6 +112,11 @@ data class AgentOptions(
             "Hide an app",
             "Removes an app from the drawer. Reversible in Settings.",
         ),
+        ARRANGE_RING(
+            "arrange_ring",
+            "Arrange the Dogo Ring",
+            "Group your apps in the home-screen ring and pick its style.",
+        ),
         PLUGIN(
             "plugin",
             "Run plugin actions",
@@ -127,6 +132,7 @@ data class AgentOptions(
             SET_ANIMATION_SCALE -> Action.SetAnimationScale(0f)
             ADD_TO_HOME -> Action.AddToHome("")
             HIDE_APP -> Action.HideApp("")
+            ARRANGE_RING -> Action.ArrangeRing(emptyList(), null)
             PLUGIN -> Action.Plugin("", "", "{}")
         }
 
@@ -142,6 +148,7 @@ data class AgentOptions(
                 is Action.SetAnimationScale -> SET_ANIMATION_SCALE
                 is Action.AddToHome -> ADD_TO_HOME
                 is Action.HideApp -> HIDE_APP
+                is Action.ArrangeRing -> ARRANGE_RING
                 is Action.Plugin -> PLUGIN
                 Action.Unknown -> null
             }

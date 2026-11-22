@@ -16,6 +16,8 @@ import android.provider.Settings
 import androidx.core.graphics.toColorInt
 import app.dogo.launcher.agent.Action
 import app.dogo.launcher.plugins.PluginActionRunner
+import app.dogo.launcher.ring.DogoRing
+import app.dogo.launcher.ring.RingStyle
 import app.lawnchair.preferences.PreferenceManager
 import app.lawnchair.preferences2.PreferenceManager2
 import app.lawnchair.ui.preferences.components.ThemeChoice
@@ -113,6 +115,8 @@ class ActionApplier(
 
         is Action.CreateFolder -> createFolder(action)
 
+        is Action.ArrangeRing -> arrangeRing(action)
+
         is Action.SetWallpaper -> {
             val color = runCatching { action.color.trim().toColorInt() }
                 .getOrElse { error("\"${action.color}\" isn't a colour like #1E1E1E.") }
@@ -168,6 +172,36 @@ class ActionApplier(
         val added = folder.getContents().size
         return "Created folder \"${action.name}\" with $added app${if (added == 1) "" else "s"}." +
             if (missing.isNotEmpty()) " Not installed: ${missing.joinToString()}." else ""
+    }
+
+    private fun arrangeRing(action: Action.ArrangeRing): String {
+        val style = action.style?.let {
+            RingStyle.fromWire(it) ?: error("Unknown ring style \"$it\". Use glow, radar or minimal.")
+        }
+        val user = Process.myUserHandle()
+        val launcherApps = context.getSystemService(LauncherApps::class.java)
+        val missing = mutableListOf<String>()
+        val groups = action.groups.map { g ->
+            g.copy(
+                apps = g.apps.filter { pkg ->
+                    launcherApps.getActivityList(pkg, user).isNotEmpty().also { if (!it) missing += pkg }
+                },
+            )
+        }.filter { it.apps.isNotEmpty() }
+        check(action.groups.isEmpty() || groups.isNotEmpty()) { "None of those apps are installed." }
+        DogoRing.update(context) { old ->
+            old.copy(
+                enabled = true,
+                style = style ?: old.style,
+                groups = if (action.groups.isEmpty()) old.groups else groups,
+            )
+        }
+        return buildString {
+            if (groups.isNotEmpty()) append("Arranged the ring into ${groups.size} groups: ${groups.joinToString { it.name }}.")
+            if (style != null) append(if (isEmpty()) "" else " ").append("Ring style is now ${style.title}.")
+            if (missing.isNotEmpty()) append(" Not installed: ${missing.joinToString()}.")
+            append(" Touch and hold the home screen to try it.")
+        }
     }
 
     private fun componentKeysFor(pkg: String): List<ComponentKey> {
