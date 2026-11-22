@@ -139,6 +139,7 @@ class DogoRingView internal constructor(
         RingCommand.APP_DRAWER to drawable(R.drawable.ic_apps),
         RingCommand.HOME_OPTIONS to drawable(R.drawable.ic_home_screen),
         RingCommand.DOGO_OPTIONS to drawable(R.drawable.ic_setting),
+        RingCommand.TALK to drawable(R.drawable.ic_mic_flat),
     )
 
     private fun drawable(id: Int): Drawable? = runCatching { ContextCompat.getDrawable(launcher, id)?.mutate()?.apply { setTint(Color.WHITE) } }.getOrNull()
@@ -299,7 +300,8 @@ class DogoRingView internal constructor(
 
             levels.size > 1 -> goBack()
 
-            sticky -> close(true)
+            // Tapping the light in the middle starts talking, like Hermes Vessel's orb.
+            sticky -> talk()
 
             else -> {
                 sticky = true
@@ -307,6 +309,13 @@ class DogoRingView internal constructor(
             }
         }
         trail.clear()
+    }
+
+    private fun talk() {
+        performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+        burst(level.cx, level.cy, 18, outer * 0.8f)
+        close(true)
+        onCommand(RingCommand.TALK, level.cx, level.cy)
     }
 
     private fun currentItem(index: Int): RingItem? = level.group.children.getOrNull(index)
@@ -429,7 +438,7 @@ class DogoRingView internal constructor(
         drawTrail(canvas, now)
         drawParticles(canvas, now, dt)
 
-        val animating = particles.isNotEmpty() || trail.isNotEmpty() || style == RingStyle.RADAR || style == RingStyle.GLOW
+        val animating = true // the light in the middle always breathes
         if (animating && isAttachedToWindow) postInvalidateOnAnimation()
     }
 
@@ -721,6 +730,10 @@ class DogoRingView internal constructor(
             }
         }
         val isRoot = l === levels.first()
+        if (isRoot) {
+            drawLight(canvas, a)
+            return
+        }
         val title = when {
             sel == RingGeometry.HUB && !isRoot && l === level && sticky -> "Back"
             else -> l.group.label
@@ -731,6 +744,97 @@ class DogoRingView internal constructor(
             canvas.drawText(title, 0f, dp(14f), hubLabel)
         } else {
             canvas.drawText(TextUtils.ellipsize(title, hubLabel, hub * 1.8f, TextUtils.TruncateAt.END).toString(), 0f, dp(5f), hubLabel)
+        }
+    }
+
+    /** The breathing light in the centre (the same light as the call screen's orb). */
+    // The accent pushed to a saturated mid tone, so the light has colour even on pastel themes.
+    private val vivid: Int = FloatArray(3).let { hsl ->
+        ColorUtils.colorToHSL(accent, hsl)
+        hsl[1] = max(hsl[1], 0.75f)
+        hsl[2] = hsl[2].coerceIn(0.52f, 0.62f)
+        ColorUtils.HSLToColor(hsl)
+    }
+
+    private fun drawLight(canvas: Canvas, a: Float) {
+        val accent = vivid
+        val t = (SystemClock.uptimeMillis() % 4200L) / 4200f
+        val breath = (1f - cos(t * 2 * Math.PI).toFloat()) / 2f
+        val r = hub * (0.70f + 0.05f * breath)
+        val deep = ColorUtils.blendARGB(accent, Color.BLACK, 0.55f)
+        // Light spilling into the dark disc.
+        fill.shader = RadialGradient(0f, 0f, hub * 1.35f, intArrayOf(alphaOf(accent, a, 200), alphaOf(accent, a, 90), Color.TRANSPARENT), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawCircle(0f, 0f, hub * 1.35f, fill)
+        // Lit from inside: near-white core, accent body, darker refractive edge.
+        fill.shader = RadialGradient(
+            -r * 0.16f,
+            -r * 0.20f,
+            r * 1.2f,
+            intArrayOf(
+                alphaOf(Color.WHITE, a, 255),
+                alphaOf(ColorUtils.blendARGB(accent, Color.WHITE, 0.45f), a, 255),
+                alphaOf(accent, a, 255),
+                alphaOf(ColorUtils.blendARGB(accent, deep, 0.6f), a, 255),
+            ),
+            floatArrayOf(0f, 0.32f, 0.72f, 1f),
+            Shader.TileMode.CLAMP,
+        )
+        canvas.drawCircle(0f, 0f, r, fill)
+        // Light drifting inside the glass.
+        val drift = (SystemClock.uptimeMillis() % 14000L) / 14000f * 2 * Math.PI
+        for (i in 0 until 2) {
+            val ang = drift * (1 + i * 0.41) + i * 2.09
+            val px = (cos(ang) * r * 0.3).toFloat()
+            val py = (sin(ang * 1.17) * r * 0.24).toFloat()
+            fill.shader = RadialGradient(px, py, r * 0.7f, intArrayOf(Color.argb((90 * a).toInt(), 255, 255, 255), Color.TRANSPARENT), null, Shader.TileMode.CLAMP)
+            canvas.drawCircle(px, py, r * 0.7f, fill)
+        }
+        fill.shader = null
+        stroke.clearShadowLayer()
+        // Soft window sheen on the upper left, as on the call screen's orb.
+        fill.shader = RadialGradient(-r * 0.34f, -r * 0.42f, r * 0.5f, intArrayOf(Color.argb((150 * a).toInt(), 255, 255, 255), Color.TRANSPARENT), null, Shader.TileMode.CLAMP)
+        canvas.drawCircle(-r * 0.34f, -r * 0.42f, r * 0.5f, fill)
+        fill.shader = null
+        stroke.strokeCap = Paint.Cap.ROUND
+        stroke.color = Color.argb((210 * a).toInt(), 255, 255, 255)
+        stroke.strokeWidth = r * 0.07f
+        tmpRect.set(-r * 0.74f, -r * 0.74f, r * 0.74f, r * 0.74f)
+        canvas.drawArc(tmpRect, 205f, 55f, false, stroke)
+        // Light refracted back up through the bottom of the glass: a soft crescent, no hard edges.
+        fill.shader = RadialGradient(0f, r * 0.35f, r * 0.9f, intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT, alphaOf(ColorUtils.blendARGB(accent, Color.WHITE, 0.5f), a, 90)), floatArrayOf(0f, 0.78f, 1f), Shader.TileMode.CLAMP)
+        canvas.save()
+        canvas.clipPath(android.graphics.Path().apply { addCircle(0f, 0f, r, android.graphics.Path.Direction.CW) })
+        canvas.drawCircle(0f, r * 0.35f, r * 0.9f, fill)
+        canvas.restore()
+        fill.shader = null
+        stroke.strokeCap = Paint.Cap.BUTT
+        stroke.color = Color.argb((40 * a).toInt(), 255, 255, 255)
+        stroke.strokeWidth = dp(1f)
+        canvas.drawCircle(0f, 0f, r * 1.24f, stroke)
+        val mic = commandIcons[RingCommand.TALK]
+        if (mic != null) {
+            fill.shader = RadialGradient(0f, if (sticky) -r * 0.16f else 0f, r * 0.55f, intArrayOf(alphaOf(ColorUtils.blendARGB(accent, Color.BLACK, 0.5f), a, 110), Color.TRANSPARENT), null, Shader.TileMode.CLAMP)
+            canvas.drawCircle(0f, if (sticky) -r * 0.16f else 0f, r * 0.55f, fill)
+            fill.shader = null
+            val s = (r * 0.42f).toInt()
+            val dy = if (sticky) -(r * 0.16f).toInt() else 0
+            mic.setTint(Color.WHITE)
+            mic.setBounds(-s, -s + dy, s, s + dy)
+            mic.alpha = (255 * a).toInt()
+            mic.draw(canvas)
+        }
+        if (sticky) {
+            val old = hubLabel.color
+            hubLabel.color = Color.WHITE
+            hubLabel.textSize = dp(8.5f)
+            hubLabel.letterSpacing = 0.12f
+            hubLabel.setShadowLayer(dp(2f), 0f, 0f, ColorUtils.blendARGB(accent, Color.BLACK, 0.6f))
+            hubLabel.alpha = (255 * a).toInt()
+            canvas.drawText("TALK", 0f, r * 0.62f, hubLabel)
+            hubLabel.color = old
+            hubLabel.textSize = dp(13f)
+            hubLabel.letterSpacing = 0f
+            hubLabel.setShadowLayer(dp(3f), 0f, dp(1f), Color.argb(200, 0, 0, 0))
         }
     }
 

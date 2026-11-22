@@ -31,7 +31,7 @@ object RingBuilder {
             ),
         ),
         Rule(
-            "Talk",
+            "People",
             setOf(4),
             listOf(
                 "dialer", "contacts", "messag", "mms", "sms", "mail", "signal", "telegram", "whatsapp",
@@ -61,7 +61,7 @@ object RingBuilder {
         ),
     )
 
-    private val GROUP_ORDER = listOf("Talk", "Web", "Media", "Tools", "System", MORE)
+    private val GROUP_ORDER = listOf("People", "Web", "Media", "Tools", "System", MORE)
 
     /** Groups apps by what they are for. Dogo itself is left out. */
     fun automaticGroups(apps: List<AppEntry>, ownPackage: String = "app.dogo.launcher"): List<RingGroup> {
@@ -98,7 +98,8 @@ object RingBuilder {
         val dogo = RingItem.Group(
             DOGO,
             listOf(
-                RingItem.Command(RingCommand.ASK_DOGO, "Ask Dogo"),
+                RingItem.Command(RingCommand.TALK, "Talk"),
+                RingItem.Command(RingCommand.ASK_DOGO, "Chat"),
                 RingItem.Command(RingCommand.APP_DRAWER, "All apps"),
                 RingItem.Command(RingCommand.HOME_OPTIONS, "Home"),
                 RingItem.Command(RingCommand.DOGO_OPTIONS, "Options"),

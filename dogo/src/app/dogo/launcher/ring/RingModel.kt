@@ -97,6 +97,8 @@ sealed interface RingItem {
 }
 
 enum class RingCommand {
+    /** Start a voice call (the light in the middle). */
+    TALK,
     ASK_DOGO,
     APP_DRAWER,
 

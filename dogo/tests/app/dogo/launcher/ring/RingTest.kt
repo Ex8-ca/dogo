@@ -82,7 +82,7 @@ class RingTest {
     @Test
     fun `apps are grouped by what they are for, Dogo left out`() {
         val groups = RingBuilder.automaticGroups(phone).associate { it.name to it.apps }
-        assertThat(groups["Talk"]).containsExactly("com.android.contacts", "com.android.messaging", "com.android.dialer")
+        assertThat(groups["People"]).containsExactly("com.android.contacts", "com.android.messaging", "com.android.dialer")
         assertThat(groups["Web"]).containsExactly("org.lineageos.jelly")
         assertThat(groups["Media"]).containsExactly("org.lineageos.aperture", "org.lineageos.twelve")
         assertThat(groups["Tools"]).containsExactly("com.android.calculator2", "com.termux")
@@ -96,10 +96,10 @@ class RingTest {
         val root = RingBuilder.build(RingBuilder.automaticGroups(phone), phone)
         val labels = root.children.map { it.label }
         assertThat(labels.last()).isEqualTo(RingBuilder.DOGO)
-        assertThat(labels).containsAtLeast("Talk", "Media", "Tools", "System").inOrder()
+        assertThat(labels).containsAtLeast("People", "Media", "Tools", "System").inOrder()
         assertThat(root.children.first { it.label == "Browser" }).isInstanceOf(RingItem.App::class.java)
         val dogo = root.children.last() as RingItem.Group
-        assertThat(dogo.children.filterIsInstance<RingItem.Command>().map { it.command }).contains(RingCommand.ASK_DOGO)
+        assertThat(dogo.children.filterIsInstance<RingItem.Command>().map { it.command }).containsAtLeast(RingCommand.TALK, RingCommand.ASK_DOGO)
     }
 
     @Test

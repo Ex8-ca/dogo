@@ -21,6 +21,9 @@ import org.json.JSONObject
 object RealtimeProtocol {
     const val SAMPLE_RATE = 24_000
     const val TOOL = "propose_changes"
+
+    /** Hands real work (web, files, memory, calendar...) to Hermes, like Hermes Vessel. */
+    const val HANDOFF_TOOL = "use_tools"
     const val DEFAULT_MODEL = "gpt-realtime-2.1"
     const val DEFAULT_VOICE = "marin"
     val VOICES = listOf("marin", "cedar", "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse")
@@ -38,13 +41,22 @@ something like "I've put that up for you to approve", never that it is done.
 When the request is clear, propose it straight away instead of asking
 follow-up questions. If the user approves or applies a change, you'll be told."""
 
-    fun sessionUpdate(instructions: String, voice: String): JSONObject = JSONObject()
+    private const val HANDOFF_RULES = """
+
+You also have use_tools: your own tools on the user's computer (files, the web,
+memory of past conversations, the calendar, smart home, code). For anything
+that needs them, or facts you are not sure of, call use_tools with one
+complete, self-contained request. Say a very short line like "One sec" first.
+The work is yours: say "I checked" or "I found". Tell them the gist when the
+result comes back, and never make results up."""
+
+    fun sessionUpdate(instructions: String, voice: String, handoff: Boolean = false): JSONObject = JSONObject()
         .put("type", "session.update")
         .put(
             "session",
             JSONObject()
                 .put("type", "realtime")
-                .put("instructions", instructions + VOICE_RULES)
+                .put("instructions", instructions + VOICE_RULES + if (handoff) HANDOFF_RULES else "")
                 .put("output_modalities", JSONArray().put("audio"))
                 .put(
                     "audio",
@@ -59,8 +71,24 @@ follow-up questions. If the user approves or applies a change, you'll be told.""
                         )
                         .put("output", JSONObject().put("format", pcmFormat()).put("voice", voice)),
                 )
-                .put("tools", JSONArray().put(proposeTool()))
+                .put("tools", JSONArray().put(proposeTool()).apply { if (handoff) put(handoffTool()) })
                 .put("tool_choice", "auto"),
+        )
+
+    private fun handoffTool() = JSONObject()
+        .put("type", "function")
+        .put("name", HANDOFF_TOOL)
+        .put(
+            "description",
+            "Use your own tools: files, the web, memory, the calendar, smart home, code. " +
+                "Describe the task as one complete instruction. It can take from seconds to minutes.",
+        )
+        .put(
+            "parameters",
+            JSONObject()
+                .put("type", "object")
+                .put("properties", JSONObject().put("request", JSONObject().put("type", "string").put("description", "The task, with all the context needed.")))
+                .put("required", JSONArray().put("request")),
         )
 
     private fun pcmFormat() = JSONObject().put("type", "audio/pcm").put("rate", SAMPLE_RATE)
@@ -125,6 +153,12 @@ follow-up questions. If the user approves or applies a change, you'll be told.""
         data class UserSaid(val text: String) : Event
         data class Audio(val base64: String) : Event
         data class AssistantSaid(val text: String) : Event
+
+        /** Part of what the voice is saying right now, for live captions. */
+        data class AssistantDelta(val text: String) : Event
+
+        /** The voice wants Hermes to do [request]. Answer with [toolResult]. */
+        data class UseTools(val callId: String, val request: String) : Event
         data class ProposeChanges(val callId: String, val actions: List<Action>, val rejected: Int) : Event
         data object ResponseDone : Event
         data class Failed(val message: String) : Event
@@ -144,9 +178,20 @@ follow-up questions. If the user approves or applies a change, you'll be told.""
 
             "response.output_audio.delta" -> m.optString("delta").takeIf { it.isNotEmpty() }?.let { Event.Audio(it) } ?: Event.Ignored
 
+            "response.output_audio_transcript.delta" -> m.optString("delta").takeIf { it.isNotEmpty() }?.let { Event.AssistantDelta(it) } ?: Event.Ignored
+
             "response.output_audio_transcript.done" -> m.optString("transcript").trim().takeIf { it.isNotEmpty() }?.let { Event.AssistantSaid(it) } ?: Event.Ignored
 
-            "response.function_call_arguments.done" -> if (m.optString("name") == TOOL) proposeChanges(m) else Event.Ignored
+            "response.function_call_arguments.done" -> when (m.optString("name")) {
+                TOOL -> proposeChanges(m)
+
+                HANDOFF_TOOL -> {
+                    val request = runCatching { JSONObject(m.optString("arguments")).optString("request") }.getOrNull()?.trim().orEmpty()
+                    if (request.isEmpty()) Event.Ignored else Event.UseTools(m.optString("call_id"), request)
+                }
+
+                else -> Event.Ignored
+            }
 
             "response.done" -> Event.ResponseDone
 

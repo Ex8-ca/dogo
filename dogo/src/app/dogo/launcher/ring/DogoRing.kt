@@ -82,6 +82,7 @@ object DogoRing {
 
     private fun runCommand(launcher: Launcher, command: RingCommand, x: Float, y: Float) {
         when (command) {
+            RingCommand.TALK -> app.dogo.launcher.voice.DogoCallView.open(launcher)
             RingCommand.ASK_DOGO -> openSettingsRoute(launcher, "dogo-setup")
             RingCommand.DOGO_OPTIONS -> openSettingsRoute(launcher, "dogo-options")
             RingCommand.APP_DRAWER -> launcher.stateManager.goToState(LauncherState.ALL_APPS)

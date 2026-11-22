@@ -75,4 +75,35 @@ class RealtimeProtocolTest {
         assertThat(VoiceConfig.tokenUrlNextTo("https://ai5080.taila6e2e.ts.net:10000/v1")).isEqualTo("https://ai5080.taila6e2e.ts.net:10000/dogo/realtime/token")
         assertThat(VoiceConfig.tokenUrlNextTo("http://127.0.0.1:8642/v1")).isNull()
     }
+
+    @Test
+    fun `use_tools is offered only with Hermes and parses to a hand-off`() {
+        fun tools(handoff: Boolean) = RealtimeProtocol.sessionUpdate("S", "marin", handoff).getJSONObject("session").getJSONArray("tools")
+        assertThat(tools(false).length()).isEqualTo(1)
+        assertThat(tools(true).getJSONObject(1).getString("name")).isEqualTo("use_tools")
+        val e = RealtimeProtocol.parse(
+            JSONObject().put("type", "response.function_call_arguments.done").put("name", "use_tools").put("call_id", "c2")
+                .put("arguments", """{"request":" what's on my calendar tomorrow? "}""").toString(),
+        )
+        assertThat(e).isEqualTo(RealtimeProtocol.Event.UseTools("c2", "what's on my calendar tomorrow?"))
+        val empty = RealtimeProtocol.parse(
+            JSONObject().put("type", "response.function_call_arguments.done").put("name", "use_tools").put("arguments", "{}").toString(),
+        )
+        assertThat(empty).isEqualTo(RealtimeProtocol.Event.Ignored)
+    }
+
+    @Test
+    fun `hermes run output is read in every shape it comes in`() {
+        assertThat(HermesHandoff.outputText("hi")).isEqualTo("hi")
+        assertThat(HermesHandoff.outputText(JSONObject().put("final_response", "done"))).isEqualTo("done")
+        assertThat(HermesHandoff.outputText(org.json.JSONArray().put("a").put(JSONObject().put("text", "b")))).isEqualTo("a\nb")
+        assertThat(HermesHandoff.outputText(null)).isEmpty()
+    }
+
+    @Test
+    fun `loudness is near zero for silence and high for a loud tone`() {
+        assertThat(VoiceSession.level(ByteArray(4800), 4800)).isEqualTo(0f)
+        val loud = ByteArray(4800) { i -> if (i % 2 == 1) (if ((i / 2) % 2 == 0) 0x40 else 0xC0.toByte().toInt()).toByte() else 0 }
+        assertThat(VoiceSession.level(loud, loud.size)).isGreaterThan(0.9f)
+    }
 }

@@ -36,9 +36,13 @@ the Lawnchair project or Google. Please report Dogo bugs
   then to an app, and let go, all in one swipe; or release in the middle and
   tap. Apps are grouped automatically, or ask Dogo to arrange them. Three
   styles (Glow, Radar, Minimal) that take their colour from your theme.
-- **Talk to it.** Tap the mic in Dogo Setup and just talk. OpenAI's Realtime
-  voice answers out loud, you can interrupt it, and the changes it suggests
-  show up as cards to approve. The OpenAI key can stay on your own computer
+- **Talk to it.** The centre of the Dogo Ring is a living light: tap it and
+  just talk. OpenAI's Realtime voice answers out loud, and you can interrupt
+  it. The light breathes, turns jade while it listens, gathers sparks while
+  your Hermes does real work (web, files, memory) and glows gold when it
+  speaks, like [Hermes Vessel](https://github.com/Ex8-ca/hermes-vessel). Any
+  changes it suggests show up as cards to approve. The mic in Dogo Setup does
+  the same. The OpenAI key can stay on your own computer
   ([`tools/realtime`](tools/realtime)), so the phone only ever holds a key that
   expires in ten minutes.
 - **Conversational setup.** A chat where the agent proposes concrete changes:

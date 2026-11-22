@@ -18,6 +18,7 @@ import app.dogo.launcher.agent.backend.AgentBackends
 import app.dogo.launcher.agent.backend.ChatTurn
 import app.dogo.launcher.agent.backend.OnDeviceBackend
 import app.dogo.launcher.agent.backend.ReplyOptions
+import app.dogo.launcher.agent.backend.resolve
 import app.dogo.launcher.llm.HardwareProfile
 import app.dogo.launcher.llm.ModelCatalog
 import app.dogo.launcher.llm.ModelRunner
@@ -354,6 +355,16 @@ class SetupChatViewModel(
     // ---- voice ---------------------------------------------------------------
 
     private var voice: VoiceSession? = null
+    private var handoff: app.dogo.launcher.voice.HermesHandoff? = null
+
+    private fun hermesHandoff(): app.dogo.launcher.voice.HermesHandoff? {
+        val options = _uiState.value.options
+        val hermes = app.dogo.launcher.agent.backend.AgentCatalog.HERMES
+        val resolved = hermes.resolve(options.agentConfigs[hermes.id])
+        val key = resolved.apiKey
+        if (resolved.problems().isNotEmpty() || key.isNullOrBlank()) return null
+        return app.dogo.launcher.voice.HermesHandoff(resolved.baseUrl, key)
+    }
     private val voiceStore = VoiceStore(application)
 
     /** Starts or stops talking. The screen asks for the microphone first. */
@@ -382,7 +393,8 @@ class SetupChatViewModel(
                 if (history.isNotEmpty()) "\n\nConversation so far (typed):\n$history" else ""
             // Debug builds: files/voice_test.pcm (24 kHz mono 16-bit) is "spoken" once, for on-device tests.
             val injected = if (com.android.launcher3.BuildConfig.DEBUG) java.io.File(getApplication<Application>().filesDir, "voice_test.pcm") else null
-            voice = VoiceSession(token, config.model, instructions, config.voice, onEvent = { event ->
+            handoff = hermesHandoff()
+            voice = VoiceSession(token, config.model, instructions, config.voice, handoff = handoff != null, onEvent = { event ->
                 viewModelScope.launch(Dispatchers.Main) { onVoiceEvent(event) }
             }, injectedSpeech = injected).also { it.start() }
         }
@@ -425,6 +437,12 @@ class SetupChatViewModel(
                     if (!options.requireConfirmation) autoApply(proposals)
                 }
                 RealtimeProtocol.toolResult(event.callId, RealtimeProtocol.proposalResult(proposals.size, event.rejected)).forEach { voice?.send(it) }
+            }
+
+            is RealtimeProtocol.Event.UseTools -> {
+                _uiState.update { it.copy(messages = it.messages + Message("Looking into it on your computer…", fromUser = false)) }
+                val answer = handoff?.ask(event.request) ?: "Hermes isn't set up on this phone, so I can't use those tools."
+                RealtimeProtocol.toolResult(event.callId, answer.take(6_000)).forEach { voice?.send(it) }
             }
 
             is RealtimeProtocol.Event.Failed -> {

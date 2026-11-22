@@ -37,6 +37,8 @@ class VoiceSession(
     private val model: String,
     private val instructions: String,
     private val voice: String,
+    /** Offer the use_tools hand-off (only when a Hermes server is set up). */
+    private val handoff: Boolean = false,
     private val onEvent: (RealtimeProtocol.Event) -> Unit,
     private val client: OkHttpClient = defaultClient,
     /**
@@ -54,6 +56,19 @@ class VoiceSession(
 
     val isRunning: Boolean get() = running.get()
 
+    /** 0..1 loudness of the microphone and of the voice, for the orb. */
+    @Volatile var micLevel: Float = 0f
+        private set
+
+    @Volatile var outLevel: Float = 0f
+        private set
+
+    @Volatile private var framesWritten = 0L
+
+    /** True while the voice is actually coming out of the speaker. */
+    val isPlaying: Boolean
+        get() = player?.let { p -> runCatching { p.playbackHeadPosition.toLong() and 0xFFFFFFFFL < framesWritten }.getOrDefault(false) } ?: false
+
     fun start() {
         if (!running.compareAndSet(false, true)) return
         val request = Request.Builder()
@@ -64,7 +79,7 @@ class VoiceSession(
             request,
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
-                    webSocket.send(RealtimeProtocol.sessionUpdate(instructions, voice).toString())
+                    webSocket.send(RealtimeProtocol.sessionUpdate(instructions, voice, handoff).toString())
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
@@ -187,6 +202,7 @@ class VoiceSession(
             while (running.get()) {
                 val n = rec.read(buf, 0, buf.size)
                 if (n <= 0) continue
+                micLevel = level(buf, n)
                 val chunk = when {
                     injected != null && injectAt < injected.size -> {
                         val end = minOf(injected.size, injectAt + n)
@@ -204,7 +220,9 @@ class VoiceSession(
 
     private fun play(base64: String) {
         val bytes = Base64.decode(base64, Base64.DEFAULT)
+        outLevel = level(bytes, bytes.size)
         player?.write(bytes, 0, bytes.size)
+        framesWritten += bytes.size / 2
     }
 
     private fun interruptPlayback() {
@@ -215,10 +233,27 @@ class VoiceSession(
                 p.play()
             }
         }
+        framesWritten = 0
+        outLevel = 0f
         send(RealtimeProtocol.cancelResponse())
     }
 
     companion object {
+        /** RMS of 16-bit little-endian PCM, scaled so normal speech lands around 0.3 to 0.8. */
+        fun level(pcm: ByteArray, length: Int): Float {
+            var sum = 0.0
+            var count = 0
+            var i = 0
+            while (i + 1 < length) {
+                val sample = (pcm[i].toInt() and 0xFF) or (pcm[i + 1].toInt() shl 8)
+                sum += sample.toDouble() * sample
+                count++
+                i += 2
+            }
+            if (count == 0) return 0f
+            return (kotlin.math.sqrt(sum / count) / 32768.0 * 6.0).toFloat().coerceIn(0f, 1f)
+        }
+
         /** 100 ms of 24 kHz 16-bit mono. */
         const val CHUNK_BYTES = RealtimeProtocol.SAMPLE_RATE * 2 / 10
 

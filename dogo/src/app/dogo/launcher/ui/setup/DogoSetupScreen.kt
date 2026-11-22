@@ -304,6 +304,9 @@ internal fun stripActionJson(text: String): String = text.lines()
     .trim()
     .ifEmpty { text.trim() }
 
+/** One-line, plain-language title for a proposed change. */
+fun describeAction(action: Action): String = describe(action) ?: "Change something"
+
 internal fun describe(action: Action): String? = when (action) {
     is Action.SetTheme -> "Set Dogo's theme to ${action.theme}"
 

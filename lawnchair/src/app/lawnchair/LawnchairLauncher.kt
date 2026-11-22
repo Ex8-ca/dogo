@@ -1,5 +1,6 @@
 /*
  * Copyright 2022, Lawnchair
+ * Modified by The Dogo Authors, 2026 (see NOTICE).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -348,6 +349,16 @@ class LawnchairLauncher : QuickstepLauncher() {
     override fun onUiChangedWhileSleeping() {
         if (Utilities.ATLEAST_S) {
             super.onUiChangedWhileSleeping()
+        }
+    }
+
+    // Dogo: the mic prompt from the Dogo Ring's light; open the call once allowed.
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == app.dogo.launcher.voice.DogoCallView.REQUEST_MIC &&
+            grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            app.dogo.launcher.voice.DogoCallView.open(this)
         }
     }
 
