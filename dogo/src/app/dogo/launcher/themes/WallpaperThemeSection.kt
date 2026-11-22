@@ -70,6 +70,13 @@ fun WallpaperThemeSection(modifier: Modifier = Modifier) {
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         app.dogo.launcher.ui.options.SectionLabel("Wallpaper colours")
+        Text(
+            "Use your home wallpaper's palette in Dogo, in both light and dark mode. " +
+                "Turning this off restores your previous accent (or Lawnchair blue if none was saved). " +
+                "You can still choose a manual or system accent in Home settings.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -116,13 +123,6 @@ fun WallpaperThemeSection(modifier: Modifier = Modifier) {
                 },
             )
         }
-        Text(
-            "Use your home wallpaper's palette in Dogo, in both light and dark mode. " +
-                "Turning this off restores your previous accent (or Lawnchair blue if none was saved). " +
-                "You can still choose a manual or system accent in Home settings.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         Button(
             enabled = !applyingWallpaper,
             onClick = {

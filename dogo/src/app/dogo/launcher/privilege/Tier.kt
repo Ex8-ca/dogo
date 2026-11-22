@@ -57,4 +57,8 @@ data class TierStatus(
     val tier: Tier,
     val available: Boolean,
     val detail: String,
+    /** True when asking would do something right now (the "Allow" button). */
+    val canRequest: Boolean = false,
+    /** A web page to get the missing app from, shown as a "Get" button. */
+    val getUrl: String? = null,
 )

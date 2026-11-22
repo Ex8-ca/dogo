@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.dogo.launcher.ui.options.FlushTextButton
 import app.dogo.launcher.ui.options.OptionsStore
 import com.android.launcher3.notification.NotificationListener
 import java.text.DateFormat
@@ -112,15 +113,15 @@ fun AlertsSection(modifier: Modifier = Modifier) {
             )
         }
         Text("Notification access: ${if (access) "allowed" else "not allowed"} · Dogo notifications: ${if (posting) "allowed" else "not allowed"}", style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = {
+        FlushTextButton(onClick = {
             runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                 .onFailure { uiMessage = "Android notification access settings are unavailable." }
         }) { Text("Open Android Notification Access") }
         if (!posting && Build.VERSION.SDK_INT >= 33) {
-            TextButton(onClick = { permission.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("Allow Dogo alert notifications") }
+            FlushTextButton(onClick = { permission.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("Allow Dogo alert notifications") }
         }
         Text("Android may hide sensitive/work-profile content. Access is not full inbox or message history. No root or Shizuku grant is used.", style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = { showApps = !showApps }) { Text("Allowed apps (${config.allowedApps.size}) · ${if (showApps) "Hide" else "Choose"}") }
+        FlushTextButton(onClick = { showApps = !showApps }) { Text("Allowed apps (${config.allowedApps.size}) · ${if (showApps) "Hide" else "Choose"}") }
         if (showApps) {
             apps.forEach { (pkg, label) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -135,7 +136,7 @@ fun AlertsSection(modifier: Modifier = Modifier) {
             }
             // Package visibility can hide apps from the launcher query; an explicit package is still an opt-in.
             OutlinedTextField(manualPackage, { manualPackage = it }, label = { Text("Other app package name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            TextButton(onClick = {
+            FlushTextButton(onClick = {
                 val pkg = manualPackage.trim()
                 if (pkg.matches(Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")) && pkg != context.packageName) {
                     DogoAlerts.configure(config.copy(allowedApps = config.allowedApps + pkg))
@@ -143,7 +144,7 @@ fun AlertsSection(modifier: Modifier = Modifier) {
                 }
             }) { Text("Allow this package") }
             (config.allowedApps - apps.map { it.first }.toSet()).forEach { pkg ->
-                TextButton(onClick = { DogoAlerts.configure(config.copy(allowedApps = config.allowedApps - pkg)) }) { Text("Remove $pkg") }
+                FlushTextButton(onClick = { DogoAlerts.configure(config.copy(allowedApps = config.allowedApps - pkg)) }) { Text("Remove $pkg") }
             }
         }
         RuleFields(config)
@@ -154,7 +155,7 @@ fun AlertsSection(modifier: Modifier = Modifier) {
             })
         }
         Text("Default: memory only, up to 100 rows. Optional history is private app storage, excluded from Android backup. Turning saving off deletes its disk copy. Discuss explicitly copies one preview into your saved chat.", style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = DogoAlerts::clear) { Text("Clear notification inbox and saved history") }
+        FlushTextButton(onClick = DogoAlerts::clear) { Text("Clear notification inbox and saved history") }
         Text("At most 20 classification requests/hour, 16 queued. Busy, unavailable and low-priority items remain in the inbox. Digest scheduling and remote push are deferred.", style = MaterialTheme.typography.bodySmall)
         (uiMessage ?: message)?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     }

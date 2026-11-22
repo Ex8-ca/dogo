@@ -10,11 +10,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -50,6 +53,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -133,6 +138,8 @@ fun DogoOptionsScreen(
                     selected = state.options.agentId == preset.id,
                     onSelect = { viewModel.selectAgent(preset) },
                     note = if (preset == AgentCatalog.ON_DEVICE && noLocalModel) "not available on this phone" else null,
+                    // Keep it selectable if it is already chosen, so a saved choice can still be changed.
+                    enabled = !(preset == AgentCatalog.ON_DEVICE && noLocalModel) || state.options.agentId == preset.id,
                 )
             }
 
@@ -325,6 +332,23 @@ private fun GroupHeader(title: String, subtitle: String, first: Boolean = false)
     }
 }
 
+/** A text button for the body of a section: flush with the text above it, not indented. */
+@Composable
+internal fun FlushTextButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        contentPadding = PaddingValues(start = 0.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+        content = content,
+    )
+}
+
 @Composable
 internal fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
@@ -439,15 +463,16 @@ private fun ModelCard(
 }
 
 @Composable
-private fun AgentRow(preset: AgentPreset, selected: Boolean, onSelect: () -> Unit, note: String? = null) {
+private fun AgentRow(preset: AgentPreset, selected: Boolean, onSelect: () -> Unit, note: String? = null, enabled: Boolean = true) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onSelect)
+            .alpha(if (enabled) 1f else 0.5f)
+            .clickable(enabled = enabled, onClick = onSelect)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = onSelect)
+        RadioButton(selected = selected, onClick = onSelect, enabled = enabled)
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(preset.displayName, style = MaterialTheme.typography.bodyLarge)
@@ -642,17 +667,46 @@ private fun RemoteAgentCard(
 
 private const val MAX_MODEL_CHOICES = 25
 
+/** Controls at the right edge of a row share one slot, so switches, ticks and buttons line up. */
+private val TRAILING_SLOT = 72.dp
+private val TRAILING_GAP = 12.dp
+
+/**
+ * A text action at the right edge of a row. Not a Material TextButton, which centres short labels
+ * inside a minimum width, so "Get" and "Allow" would stop short of the tick above them.
+ */
+@Composable
+private fun TrailingAction(label: String, onClick: () -> Unit) {
+    Text(
+        label,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+            .padding(vertical = 12.dp),
+    )
+}
+
+private fun openLink(context: android.content.Context, url: String) {
+    runCatching {
+        context.startActivity(
+            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+}
+
 @Composable
 private fun AccessRow(status: TierStatus, onRequest: () -> Unit) {
-    val requestable = !status.available && (status.tier == Tier.SHIZUKU || status.tier == Tier.ROOT)
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (requestable) Modifier.clickable(onClick = onRequest) else Modifier)
+            .then(if (status.canRequest) Modifier.clickable(onClick = onRequest) else Modifier)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f).padding(end = TRAILING_GAP)) {
             Text(status.tier.title, style = MaterialTheme.typography.bodyLarge)
             Text(
                 status.detail,
@@ -660,9 +714,12 @@ private fun AccessRow(status: TierStatus, onRequest: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        when {
-            status.available -> Icon(Icons.Default.Check, "Available", tint = MaterialTheme.colorScheme.primary)
-            requestable -> TextButton(onClick = onRequest) { Text("Allow") }
+        Box(Modifier.width(TRAILING_SLOT), contentAlignment = Alignment.CenterEnd) {
+            when {
+                status.available -> Icon(Icons.Default.Check, "Available", tint = MaterialTheme.colorScheme.primary)
+                status.getUrl != null -> TrailingAction("Get") { openLink(context, status.getUrl) }
+                status.canRequest -> TrailingAction("Allow", onRequest)
+            }
         }
     }
 }
@@ -911,7 +968,7 @@ private fun RingSection(config: RingConfig, onChange: ((RingConfig) -> RingConfi
                 modifier = Modifier.weight(1f),
             )
             if (!config.isAutomatic) {
-                TextButton(onClick = { onChange { it.copy(groups = null) } }) { Text("Reset") }
+                FlushTextButton(onClick = { onChange { it.copy(groups = null) } }) { Text("Reset") }
             }
         }
     }
@@ -951,7 +1008,7 @@ private fun VoiceSection(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            TextButton(onClick = onUseHermes) { Text("Use my Hermes server") }
+            FlushTextButton(onClick = onUseHermes) { Text("Use my Hermes server") }
             OutlinedTextField(
                 value = config.tokenUrl,
                 onValueChange = { v -> onChange { it.copy(tokenUrl = v.trim()) } },

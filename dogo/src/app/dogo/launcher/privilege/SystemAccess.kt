@@ -47,13 +47,17 @@ class SystemAccess(context: Context) {
 
     suspend fun statuses(): List<TierStatus> {
         val adbGranted = hasPermission(ActionRequirements.WRITE_SECURE_SETTINGS)
+        val shizukuInstalled = isShizukuInstalled()
+        val shizukuRunning = shizukuInstalled && shizuku.isRunning()
+        val shizukuReady = shizuku.isReady()
+        val rootReady = root.isReady()
         val shizukuStatus = when {
-            !isShizukuInstalled() -> "Not installed. Get Shizuku from F-Droid or GitHub."
-            !shizuku.isRunning() -> "Installed but not running. Open Shizuku and start it."
+            !shizukuInstalled -> "Not installed. Get Shizuku from F-Droid or GitHub."
+            !shizukuRunning -> "Installed but not running. Open Shizuku and start it."
             !shizuku.hasPermission() -> "Running. Tap to allow Dogo."
             else -> "Ready."
         }
-        val rootStatus = if (root.isReady()) "Ready." else "Not granted. Tap to ask your root manager."
+        val rootStatus = if (rootReady) "Ready." else "Not granted. Tap to ask your root manager."
         return listOf(
             TierStatus(Tier.NONE, true, "Always available."),
             TierStatus(
@@ -65,8 +69,14 @@ class SystemAccess(context: Context) {
                     "Not granted. From a computer: " + ActionRequirements.adbGrantCommand(context.packageName)
                 },
             ),
-            TierStatus(Tier.SHIZUKU, shizuku.isReady(), shizukuStatus),
-            TierStatus(Tier.ROOT, root.isReady(), rootStatus),
+            TierStatus(
+                Tier.SHIZUKU,
+                shizukuReady,
+                shizukuStatus,
+                canRequest = !shizukuReady && shizukuInstalled && shizukuRunning,
+                getUrl = SHIZUKU_DOWNLOAD.takeIf { !shizukuInstalled },
+            ),
+            TierStatus(Tier.ROOT, rootReady, rootStatus, canRequest = !rootReady),
             TierStatus(Tier.SYSTEM, false, "Comes with a future Dogo build of LineageOS."),
         )
     }
@@ -76,5 +86,9 @@ class SystemAccess(context: Context) {
         Tier.SHIZUKU -> shizuku.requestAccess()
         Tier.ROOT -> root.requestAccess()
         else -> false
+    }
+
+    private companion object {
+        const val SHIZUKU_DOWNLOAD = "https://github.com/RikkaApps/Shizuku/releases"
     }
 }

@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import app.dogo.launcher.ui.options.FlushTextButton
 import kotlinx.coroutines.launch
 
 /**
@@ -88,7 +89,7 @@ fun AssistantProfileSection(modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodyMedium,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(
+            FlushTextButton(
                 enabled = !asking,
                 onClick = {
                     asking = true
@@ -107,7 +108,7 @@ fun AssistantProfileSection(modifier: Modifier = Modifier) {
                 },
             ) { Text("Copy from my Hermes agent") }
             if (soul.source == SoulStore.Source.HERMES) {
-                TextButton(onClick = {
+                FlushTextButton(onClick = {
                     soulStore.reset()
                     soul = soulStore.read()
                     status = "Back to Dogo's own personality."
