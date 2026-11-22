@@ -207,6 +207,9 @@ fun DogoOptionsScreen(
                 AccessRow(status, onRequest = { viewModel.requestAccess(status.tier) })
             }
 
+            SectionLabel("About you")
+            app.dogo.launcher.profile.AssistantProfileSection()
+
             SectionLabel("Voice")
             VoiceSection(
                 config = state.voice,

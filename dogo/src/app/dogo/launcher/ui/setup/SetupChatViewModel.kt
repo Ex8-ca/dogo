@@ -96,6 +96,7 @@ class SetupChatViewModel(
 
     private val runner = ModelRunner.forContext(application)
     private val optionsStore = OptionsStore(application)
+    private val profileStore = app.dogo.launcher.profile.ProfileStore(application)
     private var backend: AgentBackend? = null
     private val access = SystemAccess(application)
 
@@ -232,7 +233,7 @@ class SetupChatViewModel(
             phone = loadPhoneContext()
             val options = _uiState.value.options
             active.reply(
-                SetupChatAgent.systemPromptFor(phone),
+                SetupChatAgent.systemPromptFor(phone, profileStore.load()),
                 past + app.dogo.launcher.agent.backend.ChatTurn(app.dogo.launcher.agent.backend.ChatTurn.Role.USER, trimmed, images),
                 ReplyOptions(effort = options.thinkingLevel.effort),
             )

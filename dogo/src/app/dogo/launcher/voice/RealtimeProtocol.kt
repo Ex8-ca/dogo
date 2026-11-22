@@ -145,6 +145,11 @@ result comes back, and never make results up."""
 
     fun cancelResponse(): JSONObject = JSONObject().put("type", "response.cancel")
 
+    /** Asks the voice to speak first, once, following [instruction] for this reply only. */
+    fun greet(instruction: String): JSONObject = JSONObject()
+        .put("type", "response.create")
+        .put("response", JSONObject().put("instructions", instruction))
+
     /** What a server event means for Dogo. Unknown events are [Event.Ignored]. */
     sealed interface Event {
         data object Ready : Event

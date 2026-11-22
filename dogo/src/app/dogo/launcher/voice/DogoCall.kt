@@ -13,8 +13,12 @@ import app.dogo.launcher.agent.backend.ChatTurn
 import app.dogo.launcher.agent.backend.resolve
 import app.dogo.launcher.privilege.ActionRequirements
 import app.dogo.launcher.privilege.SystemAccess
+import app.dogo.launcher.profile.AssistantProfile
+import app.dogo.launcher.profile.ProfileStore
+import app.dogo.launcher.profile.ProfileText
 import app.dogo.launcher.ui.options.OptionsStore
 import app.dogo.launcher.ui.setup.Assistant
+import app.dogo.launcher.ui.setup.ConversationCodec
 import app.dogo.launcher.ui.setup.PhoneFacts
 import app.dogo.launcher.ui.setup.SetupChatAgent
 import app.dogo.launcher.ui.setup.SetupChatViewModel.ActionState
@@ -72,6 +76,10 @@ object DogoCall {
     private var meter: Job? = null
     private var muted = false
 
+    /** What the voice should say first on this call; null once said, or when there's nothing to say. */
+    private var pendingGreeting: String? = null
+    private var injectedTest = false
+
     /** The last caption was a finished line; the next words start a new one. */
     private var captionDone = true
     private lateinit var app: Context
@@ -105,8 +113,16 @@ object DogoCall {
             }
             if (_state.value.phase != Phase.CONNECTING) return@launch // cancelled while connecting
             handoff = hermes(app)
-            val instructions = SetupChatAgent.systemPromptFor(phone) + historyNote()
+            val profile = ProfileStore(app).load()
+            val open = Assistant.state.value
+            pendingGreeting = ProfileText.greeting(
+                profile,
+                // Only worth resuming if the user said or typed something; a lone greeting isn't a topic.
+                if (open.messages.any { it.fromUser && !it.note }) ConversationCodec.displayTitle(open.title, open.messages) else null,
+            )
+            val instructions = SetupChatAgent.systemPromptFor(phone, profile) + historyNote() + earlierNote(profile)
             val injected = if (com.android.launcher3.BuildConfig.DEBUG) java.io.File(app.filesDir, "voice_test.pcm") else null
+            injectedTest = injected?.exists() == true
             session = VoiceSession(
                 token,
                 config.model,
@@ -117,6 +133,17 @@ object DogoCall {
                 injectedSpeech = injected,
             ).also { it.start() }
         }
+    }
+
+    /** A few lines about recent conversations, so a call feels like a continuation. Never notification chats. */
+    private fun earlierNote(profile: AssistantProfile): String {
+        if (!profile.recallEarlier) return ""
+        val digest = ProfileText.earlierConversations(
+            Assistant.history.value,
+            Assistant.state.value.conversationId,
+            System.currentTimeMillis(),
+        )
+        return if (digest.isEmpty()) "" else "\n\n$digest"
     }
 
     /** The conversation so far, typed or spoken, so a call picks up where it left off. */
@@ -190,6 +217,9 @@ object DogoCall {
             RealtimeProtocol.Event.Ready -> {
                 _state.update { it.copy(phase = if (muted) Phase.MUTED else Phase.LISTENING) }
                 startMeter()
+                // Speak first, once. Not while muted, and not during the debug audio test.
+                pendingGreeting?.let { line -> if (!muted && !injectedTest) session?.send(RealtimeProtocol.greet(line)) }
+                pendingGreeting = null
             }
 
             RealtimeProtocol.Event.UserStartedSpeaking -> _state.update {

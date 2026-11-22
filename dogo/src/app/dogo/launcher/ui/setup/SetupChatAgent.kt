@@ -113,8 +113,9 @@ object SetupChatAgent {
     """.trimIndent()
 
     /** The system prompt plus facts about this phone. */
-    fun systemPromptFor(phone: PhoneContext): String = buildString {
+    fun systemPromptFor(phone: PhoneContext, profile: app.dogo.launcher.profile.AssistantProfile = app.dogo.launcher.profile.AssistantProfile()): String = buildString {
         append(systemPrompt)
+        app.dogo.launcher.profile.ProfileText.promptSection(profile).takeIf { it.isNotEmpty() }?.let { append("\n\n").append(it) }
         append("\n\n")
         append(phoneSection(phone))
     }

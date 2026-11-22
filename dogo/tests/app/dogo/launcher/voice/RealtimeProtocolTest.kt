@@ -77,6 +77,15 @@ class RealtimeProtocolTest {
     }
 
     @Test
+    fun `the greeting is a one-off spoken response, not stored instructions`() {
+        val g = RealtimeProtocol.greet("Say hello to Sam.")
+        assertThat(g.getString("type")).isEqualTo("response.create")
+        assertThat(g.getJSONObject("response").getString("instructions")).isEqualTo("Say hello to Sam.")
+        val update = RealtimeProtocol.sessionUpdate("S", "marin").getJSONObject("session").getString("instructions")
+        assertThat(update).doesNotContain("Say hello")
+    }
+
+    @Test
     fun `use_tools is offered only with Hermes and parses to a hand-off`() {
         fun tools(handoff: Boolean) = RealtimeProtocol.sessionUpdate("S", "marin", handoff).getJSONObject("session").getJSONArray("tools")
         assertThat(tools(false).length()).isEqualTo(1)

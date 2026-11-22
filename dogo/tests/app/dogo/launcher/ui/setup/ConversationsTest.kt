@@ -20,6 +20,14 @@ import org.junit.Test
 
 class ConversationsTest {
     @Test
+    fun `a conversation with notification text is marked restricted in the list`() {
+        val plain = Conversation("a", listOf(Message("hello", true), Message("hi", false)), 1, 2)
+        val private = Conversation("b", listOf(Message("quoted", true, notificationContext = true)), 1, 2)
+        assertThat(ConversationCodec.summaryOf(plain).restricted).isFalse()
+        assertThat(ConversationCodec.summaryOf(private).restricted).isTrue()
+    }
+
+    @Test
     fun `notification provenance survives restart and legacy attachments are restricted`() {
         val c = Conversation("test", listOf(Message("quoted notification", true, notificationContext = true)), 1, 2)
         val back = ConversationCodec.fromJson(JSONObject(ConversationCodec.toJson(c).toString()))

@@ -43,6 +43,8 @@ data class ConversationSummary(
     val named: Boolean = false,
     /** Lower-case text of the whole conversation, for search. */
     val searchText: String,
+    /** Contains notification text; kept out of anything sent to another model. */
+    val restricted: Boolean = false,
 ) {
     fun matches(query: String): Boolean = query.isBlank() || query.trim().lowercase().split(Regex("\\s+")).all { it in searchText }
 }
@@ -170,6 +172,7 @@ object ConversationCodec {
             messageCount = shown.size,
             hasVoice = c.messages.any { it.spoken },
             searchText = (displayTitle(c.title, c.messages) + " " + c.messages.joinToString(" ") { stripActionJson(it.text) }).lowercase().take(8_000),
+            restricted = c.messages.any { it.notificationContext },
         )
     }
 
