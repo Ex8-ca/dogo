@@ -46,6 +46,15 @@ the Lawnchair project or Google. Please report Dogo bugs
   the same. The OpenAI key can stay on your own computer
   ([`tools/realtime`](tools/realtime)), so the phone only ever holds a key that
   expires in ten minutes.
+- **Widgets and layouts by asking.** "Add a clock and a music widget and give
+  me a cool dark layout" becomes approvable cards: widgets placed on a page,
+  grid size, icon shape and size, labels, dock apps, search bar, accent colour,
+  icon pack and a gradient wallpaper. Widgets are written to the launcher
+  database, so they survive restarts.
+- **Copy another phone.** Take a photo of a friend's phone (or pick a
+  screenshot) in the chat and the agent recreates it as closely as it can,
+  then says what it couldn't copy. Needs an agent that can see photos, such as
+  Hermes, GPT, Claude or Gemini; the on-device model can't.
 - **Conversational setup.** A chat where the agent proposes concrete changes:
   Dogo's theme, the phone's dark mode, wallpaper, folders, home-screen apps,
   hiding apps, animation speed. Each change shows up as a card with **Apply**.
