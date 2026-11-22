@@ -2,5 +2,20 @@
 <!-- Copyright 2026 The Dogo Authors. SPDX-License-Identifier: Apache-2.0 -->
 <!-- Merged into the dogo channel only; upstream channels are unchanged. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:networkSecurityConfig="@xml/dogo_network_security" />
+
+    <application android:networkSecurityConfig="@xml/dogo_network_security">
+        <!-- Lets the Shizuku app hand Dogo its binder. Inert unless Shizuku is
+             installed and the user allows Dogo in it. -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+    </application>
+
+    <queries>
+        <package android:name="moe.shizuku.privileged.api" />
+    </queries>
 </manifest>

@@ -34,6 +34,10 @@ This product includes third-party software:
   Copyright (c) 2023-2026 The ggml authors
   Licensed under the MIT License
 
+  Shizuku-API (dev.rikka.shizuku:api, :provider) - https://github.com/RikkaApps/Shizuku-API
+  Copyright (c) 2021 RikkaW
+  Licensed under the MIT License
+
 Further third-party dependencies inherited from Lawnchair are listed, with
 their licenses, on the in-app Acknowledgements screen (generated at build time
 by the Licensee Gradle plugin) and in lawnchair/assets/license.html.
