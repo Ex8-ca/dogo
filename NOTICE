@@ -1,0 +1,43 @@
+Dogo
+Copyright 2026 The Dogo Authors
+
+This product is licensed under the Apache License, Version 2.0 (see
+LICENSE.txt).
+
+This product is a modified version of (a "Derivative Work" of) Lawnchair:
+  https://github.com/LawnchairLauncher/lawnchair
+  Copyright (c) 2024, Lawnchair
+  Licensed under the Apache License, Version 2.0
+
+Lawnchair is in turn based on Launcher3 from the Android Open Source Project:
+  https://android.googlesource.com/platform/packages/apps/Launcher3/
+  Copyright (c) 2005-2008, The Android Open Source Project
+  Licensed under the Apache License, Version 2.0
+
+The copyright notices above were carried in the LICENSE.txt header of the
+upstream Lawnchair repository; they are preserved here, and all per-file
+copyright and license headers from upstream are retained unchanged.
+
+Upstream files that Dogo has modified carry a "Modified by The Dogo Authors"
+notice at the top of the file. Code under dogo/ is new Dogo work. Dogo is not
+affiliated with or endorsed by the Lawnchair project or Google; "Lawnchair"
+and "Android" are trademarks of their respective owners and are not licensed
+by this notice.
+
+This product includes third-party software:
+
+  java-llama.cpp (de.kherud:llama) - https://github.com/kherud/java-llama.cpp
+  Copyright (c) 2023 Konstantin Herud
+  Licensed under the MIT License
+
+  llama.cpp (bundled inside java-llama.cpp) - https://github.com/ggml-org/llama.cpp
+  Copyright (c) 2023-2026 The ggml authors
+  Licensed under the MIT License
+
+Further third-party dependencies inherited from Lawnchair are listed, with
+their licenses, on the in-app Acknowledgements screen (generated at build time
+by the Licensee Gradle plugin) and in lawnchair/assets/license.html.
+
+On-device model weights (GGUF files) are NOT distributed with this product.
+They are downloaded at runtime from their publishers and are governed by
+their own licenses.
