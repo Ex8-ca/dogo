@@ -153,4 +153,30 @@ class ActionExecutorParseTest {
 
         assertThat(roundTripped).isEqualTo(original)
     }
+
+    @Test
+    fun `parseActions finds every action in a reply`() {
+        val reply = """
+            Sure. I'll make it dark and tidy up.
+            {"action": "set_theme", "params": {"theme": "dark"}}
+            {"action": "create_folder", "params": {"name": "Work", "apps": ["com.slack"]}}
+            and {broken prose
+            {"action": "nope", "params": {}}
+            {"action": "set_animation_scale", "params": {"scale": 0.5}}
+        """.trimIndent()
+
+        val actions = ActionExecutor.parseActions(reply)
+
+        assertThat(actions).containsExactly(
+            Action.SetTheme("dark"),
+            Action.CreateFolder("Work", listOf("com.slack")),
+            Action.SetAnimationScale(0.5f),
+        ).inOrder()
+    }
+
+    @Test
+    fun `parseActions returns nothing for plain chat`() {
+        assertThat(ActionExecutor.parseActions("What apps do you use most?")).isEmpty()
+        assertThat(ActionExecutor.parseActions("")).isEmpty()
+    }
 }

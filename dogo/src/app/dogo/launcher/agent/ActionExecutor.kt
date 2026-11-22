@@ -55,6 +55,42 @@ object ActionExecutor {
         }
     }
 
+    /**
+     * Parses every action in [text], in order, skipping anything that isn't
+     * one. The system prompt asks for one action per line, so a single reply
+     * can propose several changes.
+     */
+    fun parseActions(text: String): List<Action> {
+        val actions = mutableListOf<Action>()
+        var index = text.indexOf('{')
+        while (index >= 0) {
+            val end = findMatchingBrace(text, index)
+            if (end < 0) {
+                // A stray "{" in prose; a later object may still be balanced.
+                index = text.indexOf('{', index + 1)
+                continue
+            }
+            val candidate = text.substring(index, end + 1)
+            val action = if (candidate.contains("\"$KEY_ACTION\"")) {
+                try {
+                    parseObject(JSONObject(candidate))
+                } catch (e: Exception) {
+                    Action.Unknown
+                }
+            } else {
+                Action.Unknown
+            }
+            if (action != Action.Unknown) {
+                actions += action
+                // Skip past this object so its nested params aren't rescanned.
+                index = text.indexOf('{', end + 1)
+            } else {
+                index = text.indexOf('{', index + 1)
+            }
+        }
+        return actions
+    }
+
     private fun parseObject(obj: JSONObject): Action {
         val name = obj.optString(KEY_ACTION)
         // Require the params object: a bare action name says nothing about what
