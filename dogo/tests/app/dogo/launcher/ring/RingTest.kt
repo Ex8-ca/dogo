@@ -131,6 +131,8 @@ class RingTest {
         assertThat(RingConfig.fromJson("{nope")).isEqualTo(RingConfig())
         assertThat(RingConfig.fromJson("""{"holdMs": 99999}""").holdMs).isEqualTo(RingConfig.HOLD_RANGE.last)
         assertThat(RingConfig.fromJson("""{"style": "sparkly"}""").style).isEqualTo(RingStyle.GLOW)
+        assertThat(RingConfig.fromJson("""{"style": "Fire"}""").style).isEqualTo(RingStyle.FIRE)
+        assertThat(RingStyle.fromWire(" electric ")).isEqualTo(RingStyle.ELECTRIC)
         assertThat(RingConfig().isAutomatic).isTrue()
     }
 

@@ -791,7 +791,8 @@ private fun RingSection(config: RingConfig, onChange: ((RingConfig) -> RingConfi
                     onClick = { onChange { it.copy(style = style) } },
                     shape = SegmentedButtonDefaults.itemShape(i, RingStyle.entries.size),
                     enabled = config.enabled,
-                ) { Text(style.title) }
+                    icon = {},
+                ) { Text(style.title, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelMedium) }
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {

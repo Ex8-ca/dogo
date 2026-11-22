@@ -176,7 +176,7 @@ class ActionApplier(
 
     private fun arrangeRing(action: Action.ArrangeRing): String {
         val style = action.style?.let {
-            RingStyle.fromWire(it) ?: error("Unknown ring style \"$it\". Use glow, radar or minimal.")
+            RingStyle.fromWire(it) ?: error("Unknown ring style \"$it\". Use glow, radar, fire, electric or minimal.")
         }
         val user = Process.myUserHandle()
         val launcherApps = context.getSystemService(LauncherApps::class.java)

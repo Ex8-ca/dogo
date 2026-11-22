@@ -35,7 +35,8 @@ the Lawnchair project or Google. Please report Dogo bugs
   [Tenkai Launcher](https://tenkailauncher.com/)'s pies). Slide to a group,
   then to an app, and let go, all in one swipe; or release in the middle and
   tap. Apps are grouped automatically, or ask Dogo to arrange them. Three
-  styles (Glow, Radar, Minimal) that take their colour from your theme.
+  styles: Glow and Radar take their colour from your theme, Fire throws
+  embers, Electric crackles with lightning, and Minimal is a plain dark disc.
 - **Talk to it.** The centre of the Dogo Ring is a living light: tap it and
   just talk. OpenAI's Realtime voice answers out loud, and you can interrupt
   it. The light breathes, turns jade while it listens, gathers sparks while

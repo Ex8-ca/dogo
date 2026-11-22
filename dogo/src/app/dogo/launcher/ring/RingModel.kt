@@ -20,6 +20,12 @@ enum class RingStyle(val wireName: String, val title: String) {
     /** Translucent scope with a sweep beam that swings to your selection. */
     RADAR("radar", "Radar"),
 
+    /** Orange ring with embers that rise from your finger. */
+    FIRE("fire", "Fire"),
+
+    /** Neon cyan double ring; lightning jumps from the hub to your choice. */
+    ELECTRIC("electric", "Electric"),
+
     /** Flat dark disc, no effects. */
     MINIMAL("minimal", "Minimal"),
     ;

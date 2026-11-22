@@ -38,6 +38,7 @@ import com.android.launcher3.Launcher
 import com.android.launcher3.R
 import com.android.launcher3.util.Themes
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
@@ -71,7 +72,12 @@ class DogoRingView internal constructor(
     private val pop = dp(10f)
     private val labelRoom = dp(26f)
 
-    private val accent = Themes.getColorAccent(launcher)
+    // Fire and Electric bring their own colours; the others follow your theme.
+    private val accent = when (style) {
+        RingStyle.FIRE -> 0xFFFF7A1A.toInt()
+        RingStyle.ELECTRIC -> 0xFF2FD8FF.toInt()
+        else -> Themes.getColorAccent(launcher)
+    }
     private val accentLight = ColorUtils.blendARGB(accent, Color.WHITE, 0.45f)
 
     private inner class Level(val group: RingItem.Group, val cx: Float, val cy: Float) {
@@ -102,9 +108,15 @@ class DogoRingView internal constructor(
     private data class TrailPoint(val x: Float, val y: Float, val t: Long)
     private val trail = ArrayDeque<TrailPoint>()
 
-    private class Particle(var x: Float, var y: Float, val vx: Float, val vy: Float, val born: Long, val life: Long, val size: Float, val white: Boolean)
+    private class Particle(var x: Float, var y: Float, var vx: Float, var vy: Float, val born: Long, val life: Long, val size: Float, val white: Boolean, val ember: Boolean = false)
     private val particles = ArrayList<Particle>()
     private val random = Random(SystemClock.uptimeMillis())
+
+    // Electric: the current lightning, redrawn a few times a second so it crackles.
+    private val bolts = ArrayList<Bolt>()
+    private val strikes = ArrayList<Pair<Float, Float>>()
+    private var boltsAt = 0L
+    private var boltsFor = Int.MIN_VALUE
 
     private var sweepAngle = -90f
     private var lastFrame = 0L
@@ -120,6 +132,11 @@ class DogoRingView internal constructor(
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         maskFilter = android.graphics.BlurMaskFilter(dp(9f), android.graphics.BlurMaskFilter.Blur.NORMAL)
+    }
+    private val ember = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.ADD)
     }
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val label = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -394,7 +411,14 @@ class DogoRingView internal constructor(
     // ---- effects ------------------------------------------------------------
 
     private fun burst(x: Float, y: Float, count: Int, speed: Float) {
-        if (style == RingStyle.MINIMAL) return
+        if (style == RingStyle.MINIMAL || style == RingStyle.ELECTRIC) return
+        if (style == RingStyle.FIRE) {
+            // Picking a slice throws a spray of coals off its edge of the ring.
+            val now = SystemClock.uptimeMillis()
+            val ang = atan2(y - level.cy, x - level.cx)
+            repeat(count + 2) { ember(level.cx + cos(ang) * (outer + dp(6f)), level.cy + sin(ang) * (outer + dp(6f)), now, 0.5f, cos(ang), sin(ang)) }
+            return
+        }
         val now = SystemClock.uptimeMillis()
         repeat(count) {
             val a = random.nextFloat() * 2 * Math.PI
@@ -410,7 +434,23 @@ class DogoRingView internal constructor(
                 random.nextFloat() < 0.35f,
             )
         }
-        while (particles.size > 120) particles.removeAt(0)
+        while (particles.size > 160) particles.removeAt(0)
+    }
+
+    /** Fire: a hot coal that drifts upward and sways as it cools. */
+    private fun ember(x: Float, y: Float, now: Long, lift: Float = 1f, outX: Float = 0f, outY: Float = 0f) {
+        particles += Particle(
+            x + (random.nextFloat() - 0.5f) * dp(10f),
+            y + (random.nextFloat() - 0.5f) * dp(10f),
+            (random.nextFloat() - 0.5f) * dp(40f) + outX * dp(140f) * (0.5f + random.nextFloat()),
+            -dp(50f + random.nextFloat() * 110f) * lift + outY * dp(140f) * (0.5f + random.nextFloat()),
+            now,
+            600L + random.nextLong(700L),
+            dp(1.2f + random.nextFloat() * random.nextFloat() * 3.6f),
+            random.nextFloat() < 0.3f,
+            ember = true,
+        )
+        while (particles.size > 160) particles.removeAt(0)
     }
 
     // ---- drawing ------------------------------------------------------------
@@ -432,6 +472,16 @@ class DogoRingView internal constructor(
         )
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), fill)
         fill.shader = null
+
+        if (style == RingStyle.FIRE && !closing) {
+            val last = trail.lastOrNull()
+            if (last != null && now - last.t < 120L && hypot(last.x - focus.cx, last.y - focus.cy) > outer) repeat(2) { ember(last.x, last.y, now) }
+            // Coals keep lifting off the whole rim, more from the top where the heat rises.
+            if (random.nextFloat() < 0.7f) {
+                val ang = (random.nextFloat() * 2 - 1) * Math.PI * (if (random.nextFloat() < 0.6f) 0.5 else 1.0) - Math.PI / 2
+                ember(focus.cx + (cos(ang) * (outer + dp(3f))).toFloat(), focus.cy + (sin(ang) * (outer + dp(3f))).toFloat(), now, 0.8f)
+            }
+        }
 
         // Only the open ring is drawn; its hub says "Back" to return.
         drawLevel(canvas, levels.last(), appear, true, dt)
@@ -456,8 +506,12 @@ class DogoRingView internal constructor(
         when (style) {
             RingStyle.GLOW -> drawGlowBody(canvas, g, sel, a)
             RingStyle.RADAR -> drawRadarBody(canvas, g, sel, a, dt, top)
+            RingStyle.FIRE -> drawFireBody(canvas, g, sel, a)
+            RingStyle.ELECTRIC -> drawElectricBody(canvas, g, sel, a)
             RingStyle.MINIMAL -> drawMinimalBody(canvas, g, sel, a)
         }
+        // Lightning runs under the icons and labels, so they stay readable.
+        if (style == RingStyle.ELECTRIC && top) drawBolts(canvas, g, sel, a)
         l.group.children.forEachIndexed { i, item -> drawItem(canvas, g, i, item, i == sel, a) }
         drawHub(canvas, l, sel, a)
         canvas.restore()
@@ -521,6 +575,205 @@ class DogoRingView internal constructor(
         stroke.strokeWidth = dp(1f)
         stroke.color = alphaOf(accent, a, 110)
         canvas.drawCircle(0f, 0f, outer - dp(7f), stroke)
+    }
+
+    private fun drawFireBody(canvas: Canvas, g: RingGeometry, sel: Int, a: Float) {
+        fill.shader = null
+        fill.clearShadowLayer()
+        fill.color = Color.argb((215 * a).toInt(), 20, 9, 4)
+        canvas.drawCircle(0f, 0f, outer + dp(2f), fill)
+        // Heat rising off the inside of the rim.
+        fill.shader = RadialGradient(0f, 0f, outer, intArrayOf(Color.TRANSPARENT, alphaOf(accent, a, 70)), floatArrayOf(0.62f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawCircle(0f, 0f, outer, fill)
+        fill.shader = null
+
+        if (sel >= 0) {
+            val path = wedgePath(g, sel, hub + dp(3f), outer + pop)
+            fill.shader = RadialGradient(
+                0f,
+                0f,
+                outer + pop,
+                intArrayOf(alphaOf(0xFFB3260A.toInt(), a, 170), alphaOf(accent, a, 235), alphaOf(0xFFFFC542.toInt(), a, 255)),
+                floatArrayOf(0.3f, 0.8f, 1f),
+                Shader.TileMode.CLAMP,
+            )
+            canvas.drawPath(path, fill)
+            fill.shader = null
+            tmpRect.set(-(outer + pop), -(outer + pop), outer + pop, outer + pop)
+            bloom.color = alphaOf(0xFFFFB02E.toInt(), a, 255)
+            bloom.strokeWidth = dp(10f)
+            canvas.drawArc(tmpRect, g.startAngle(sel) + 1f, g.sweep - 2f, false, bloom)
+        }
+
+        drawDividers(canvas, g, alphaOf(accent, a, 120), dp(1.5f))
+        // A solid, flickering ring of flame colour.
+        val flicker = 0.85f + random.nextFloat() * 0.15f
+        bloom.color = alphaOf(accent, a * flicker, 230)
+        bloom.strokeWidth = dp(10f)
+        canvas.drawCircle(0f, 0f, outer, bloom)
+        stroke.color = alphaOf(accent, a, 255)
+        stroke.strokeWidth = dp(4f)
+        canvas.drawCircle(0f, 0f, outer, stroke)
+        stroke.color = alphaOf(0xFFFFD37A.toInt(), a, 200)
+        stroke.strokeWidth = dp(1.2f)
+        canvas.drawCircle(0f, 0f, outer - dp(1f), stroke)
+    }
+
+    private fun drawElectricBody(canvas: Canvas, g: RingGeometry, sel: Int, a: Float) {
+        fill.shader = null
+        fill.clearShadowLayer()
+        fill.color = Color.argb((220 * a).toInt(), 2, 10, 20)
+        canvas.drawCircle(0f, 0f, outer + dp(2f), fill)
+
+        if (sel >= 0) {
+            val path = wedgePath(g, sel, hub + dp(3f), outer + pop)
+            fill.shader = RadialGradient(0f, 0f, outer + pop, intArrayOf(alphaOf(accent, a, 25), alphaOf(accent, a, 120)), floatArrayOf(0.3f, 1f), Shader.TileMode.CLAMP)
+            canvas.drawPath(path, fill)
+            fill.shader = null
+        }
+
+        // Glowing circuit lines between the slices.
+        val buzz = 0.8f + random.nextFloat() * 0.2f
+        val n = g.count
+        if (n > 1) {
+            bloom.color = alphaOf(accent, a * buzz, 170)
+            bloom.strokeWidth = dp(4f)
+            stroke.color = alphaOf(accentLight, a, 200)
+            stroke.strokeWidth = dp(1f)
+            for (i in 0 until n) {
+                val rad = Math.toRadians(g.startAngle(i).toDouble())
+                val c = cos(rad).toFloat()
+                val s = sin(rad).toFloat()
+                canvas.drawLine(c * (hub + dp(4f)), s * (hub + dp(4f)), c * (outer - dp(7f)), s * (outer - dp(7f)), bloom)
+                canvas.drawLine(c * (hub + dp(4f)), s * (hub + dp(4f)), c * (outer - dp(7f)), s * (outer - dp(7f)), stroke)
+            }
+        }
+        // Neon double outline.
+        for (r in floatArrayOf(outer, outer - dp(7f))) {
+            bloom.color = alphaOf(accent, a * buzz, 220)
+            bloom.strokeWidth = dp(8f)
+            canvas.drawCircle(0f, 0f, r, bloom)
+            stroke.color = alphaOf(ColorUtils.blendARGB(accent, Color.WHITE, 0.6f), a, 255)
+            stroke.strokeWidth = dp(1.8f)
+            canvas.drawCircle(0f, 0f, r, stroke)
+        }
+        if (sel >= 0) {
+            tmpRect.set(-(outer + pop), -(outer + pop), outer + pop, outer + pop)
+            stroke.color = alphaOf(Color.WHITE, a, 255)
+            stroke.strokeWidth = dp(2.5f)
+            canvas.drawArc(tmpRect, g.startAngle(sel) + 1f, g.sweep - 2f, false, stroke)
+        }
+    }
+
+    /** A lightning stroke: points along its path and how thick it is where it starts. */
+    private class Bolt(val xs: FloatArray, val ys: FloatArray, val width: Float)
+
+    /**
+     * Lightning from (x0, y0) to (x1, y1): fine jitter around a clear direction (midpoint
+     * displacement), plus thin twigs that branch off and die out.
+     */
+    private fun strike(x0: Float, y0: Float, x1: Float, y1: Float, width: Float, out: MutableList<Bolt>, depth: Int = 0) {
+        val len = hypot(x1 - x0, y1 - y0)
+        if (len < dp(4f)) return
+        var xs = floatArrayOf(x0, x1)
+        var ys = floatArrayOf(y0, y1)
+        var rough = len * 0.16f
+        repeat(5) {
+            val n = xs.size
+            val nx = FloatArray(n * 2 - 1)
+            val ny = FloatArray(n * 2 - 1)
+            for (k in 0 until n - 1) {
+                nx[k * 2] = xs[k]
+                ny[k * 2] = ys[k]
+                val dx = xs[k + 1] - xs[k]
+                val dy = ys[k + 1] - ys[k]
+                val d = max(1f, hypot(dx, dy))
+                val off = (random.nextFloat() - 0.5f) * 2f * rough
+                nx[k * 2 + 1] = (xs[k] + xs[k + 1]) / 2f - dy / d * off
+                ny[k * 2 + 1] = (ys[k] + ys[k + 1]) / 2f + dx / d * off
+            }
+            nx[nx.size - 1] = xs[n - 1]
+            ny[ny.size - 1] = ys[n - 1]
+            xs = nx
+            ys = ny
+            rough *= 0.52f
+        }
+        out += Bolt(xs, ys, width)
+        if (depth >= 2) return
+        // Twigs: short side branches, thinner, angled off the main direction.
+        val twigs = if (depth == 0) 3 + random.nextInt(3) else random.nextInt(2)
+        val dir = atan2(y1 - y0, x1 - x0)
+        repeat(twigs) {
+            val k = (xs.size * (0.15f + random.nextFloat() * 0.65f)).toInt()
+            val ang = dir + (if (random.nextBoolean()) 1f else -1f) * (0.4f + random.nextFloat() * 0.6f)
+            val tl = len * (0.12f + random.nextFloat() * 0.22f)
+            strike(xs[k], ys[k], xs[k] + cos(ang) * tl, ys[k] + sin(ang) * tl, width * 0.45f, out, depth + 1)
+        }
+    }
+
+    private fun drawBolts(canvas: Canvas, g: RingGeometry, sel: Int, a: Float) {
+        val now = SystemClock.uptimeMillis()
+        if (now - boltsAt > 70L || sel != boltsFor) {
+            boltsAt = now
+            boltsFor = sel
+            bolts.clear()
+            strikes.clear()
+            if (sel >= 0) {
+                val (x, y) = g.position(sel)
+                val ty = y - dp(6f)
+                val trad = atan2(ty, x)
+                // The icon is drawn over the end, so the bolt seems to strike it.
+                strike(cos(trad) * hub, sin(trad) * hub, x, ty, dp(5.5f), bolts)
+                strikes += x to ty
+                // A second, thinner arc crackles past the icon out to the rim of the slice.
+                if (random.nextFloat() < 0.8f) {
+                    val side = trad + (if (random.nextBoolean()) 1f else -1f) * Math.toRadians(g.sweep * 0.3).toFloat()
+                    val rim = outer - dp(8f)
+                    strike(cos(trad) * hub, sin(trad) * hub, cos(side) * rim, sin(side) * rim, dp(3.2f), bolts)
+                    strikes += cos(side) * rim to sin(side) * rim
+                }
+            } else if (random.nextFloat() < 0.75f) {
+                // Idle: short tendrils crawl out of the hub.
+                repeat(2 + random.nextInt(2)) {
+                    val ang = random.nextFloat() * 2f * Math.PI.toFloat()
+                    val len = hub + (outer - hub) * (0.14f + random.nextFloat() * 0.2f)
+                    strike(cos(ang) * hub, sin(ang) * hub, cos(ang) * len, sin(ang) * len, dp(2f), bolts, 1)
+                }
+            }
+        }
+        if (bolts.isEmpty()) return
+        val flash = 0.7f + random.nextFloat() * 0.3f
+        val body = alphaOf(ColorUtils.blendARGB(accent, Color.WHITE, 0.3f), a * flash, 255)
+        val core = alphaOf(Color.WHITE, a * flash, 255)
+        stroke.strokeCap = Paint.Cap.ROUND
+        for (b in bolts) {
+            val n = b.xs.size
+            // Glow along the whole stroke.
+            wedge.reset()
+            wedge.moveTo(b.xs[0], b.ys[0])
+            for (k in 1 until n) wedge.lineTo(b.xs[k], b.ys[k])
+            bloom.color = alphaOf(accent, a * flash, 255)
+            bloom.strokeWidth = max(dp(6f), b.width * 3.2f)
+            canvas.drawPath(wedge, bloom)
+            // Body and white core, tapering toward the tip.
+            for (k in 0 until n - 1) {
+                val taper = 1f - 0.65f * k / (n - 1f)
+                stroke.color = body
+                stroke.strokeWidth = b.width * taper
+                canvas.drawLine(b.xs[k], b.ys[k], b.xs[k + 1], b.ys[k + 1], stroke)
+                stroke.color = core
+                stroke.strokeWidth = b.width * taper * 0.45f
+                canvas.drawLine(b.xs[k], b.ys[k], b.xs[k + 1], b.ys[k + 1], stroke)
+            }
+        }
+        stroke.strokeCap = Paint.Cap.BUTT
+        // A flash where each bolt lands.
+        for ((sx, sy) in strikes) {
+            val r = dp(16f) * (0.8f + random.nextFloat() * 0.4f)
+            fill.shader = RadialGradient(sx, sy, r, intArrayOf(alphaOf(Color.WHITE, a * flash, 230), alphaOf(accent, a * flash, 150), Color.TRANSPARENT), floatArrayOf(0f, 0.35f, 1f), Shader.TileMode.CLAMP)
+            canvas.drawCircle(sx, sy, r, fill)
+        }
+        fill.shader = null
     }
 
     private fun drawRadarBody(canvas: Canvas, g: RingGeometry, sel: Int, a: Float, dt: Float, top: Boolean) {
@@ -708,7 +961,7 @@ class DogoRingView internal constructor(
         fill.shader = null
         stroke.clearShadowLayer()
         when (style) {
-            RingStyle.GLOW -> {
+            RingStyle.GLOW, RingStyle.FIRE, RingStyle.ELECTRIC -> {
                 fill.color = Color.argb((210 * a).toInt(), 8, 10, 20)
                 canvas.drawCircle(0f, 0f, hub, fill)
                 bloom.color = alphaOf(accent, a, 180)
@@ -869,7 +1122,27 @@ class DogoRingView internal constructor(
             p.y += p.vy * dt
             val life = 1f - age
             val color = if (p.white) Color.WHITE else accentLight
-            if (style == RingStyle.GLOW && p.size > dp(3f)) {
+            if (p.ember) {
+                // A spark: white-hot when it leaves, cooling through orange to deep red,
+                // drawn as a short streak along its path and added onto the light below.
+                p.vx += (random.nextFloat() - 0.5f) * dp(160f) * dt
+                p.vy -= dp(30f) * dt
+                val hot = when {
+                    age < 0.1f -> ColorUtils.blendARGB(0xFFFFF4C2.toInt(), 0xFFFF9A1F.toInt(), age / 0.1f)
+                    age < 0.5f -> ColorUtils.blendARGB(0xFFFF9A1F.toInt(), 0xFFF0480C.toInt(), (age - 0.1f) / 0.4f)
+                    else -> ColorUtils.blendARGB(0xFFF0480C.toInt(), 0xFF8A1606.toInt(), (age - 0.5f) / 0.5f)
+                }
+                val flick = 0.6f + random.nextFloat() * 0.4f
+                val w = max(dp(0.8f), p.size * (0.3f + 0.7f * life))
+                val speed = max(1f, hypot(p.vx, p.vy))
+                val tail = min(dp(6f), speed * 0.03f)
+                // Soft glow, then a hot point with only a short tail.
+                fill.color = alphaOf(hot, appear * life * flick, 70)
+                canvas.drawCircle(p.x, p.y, w * 2.2f, fill)
+                ember.strokeWidth = w
+                ember.color = alphaOf(hot, appear * life * flick, 255)
+                canvas.drawLine(p.x, p.y, p.x - p.vx / speed * tail, p.y - p.vy / speed * tail, ember)
+            } else if (style == RingStyle.GLOW && p.size > dp(3f)) {
                 drawSparkle(canvas, p.x, p.y, p.size * 1.6f * life, alphaOf(color, appear * life, 255))
             } else {
                 fill.color = alphaOf(color, appear * life, 255)
