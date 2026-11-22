@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2026 The Dogo Authors. SPDX-License-Identifier: Apache-2.0 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M32,45 L31,29 Q32,25 36,29 L45,39 Q54,35 63,39 L72,29 Q76,25 77,29 L76,45 Q82,50 79,62 Q76,78 54,80 Q32,78 29,62 Q26,50 32,45 Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#FF000000" android:strokeWidth="3" android:pathData="M39,52 L44,52 M64,52 L69,52 M50,63 L54,66 L58,63 M54,66 L54,72" />
+</vector>
