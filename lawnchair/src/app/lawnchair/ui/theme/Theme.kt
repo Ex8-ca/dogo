@@ -1,5 +1,7 @@
 /*
  * Copyright 2021, Lawnchair
+ * Copyright 2026 The Dogo Authors
+ * Modified for Dogo: observe live colour schemes and refresh system bar colours.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,13 +41,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import app.lawnchair.preferences.observeAsState
 import app.lawnchair.preferences.preferenceManager
-import app.lawnchair.preferences2.asState
-import app.lawnchair.preferences2.preferenceManager2
 import app.lawnchair.theme.ThemeProvider
 import app.lawnchair.theme.toComposeColorScheme
 import app.lawnchair.ui.preferences.components.ThemeChoice
 import app.lawnchair.wallpaper.WallpaperManagerCompat
 import com.android.launcher3.Utilities
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 @Composable
 fun LawnchairTheme(
@@ -68,7 +73,7 @@ fun ComponentActivity.EdgeToEdge() {
     val scrimColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f).toArgb()
     val contentColor = MaterialTheme.colorScheme.onSurface.toArgb()
 
-    LaunchedEffect(darkTheme) {
+    LaunchedEffect(darkTheme, scrimColor, contentColor) {
         val statusBarStyle = SystemBarStyle.auto(
             Color.TRANSPARENT,
             Color.TRANSPARENT,
@@ -93,12 +98,25 @@ fun getColorScheme(darkTheme: Boolean): ColorScheme {
     if (LocalInspectionMode.current) return getPreviewColorScheme(darkTheme)
 
     val context = LocalContext.current
-    val preferenceManager2 = preferenceManager2()
-    val accentColor by preferenceManager2.accentColor.asState()
-    val colorStyle by preferenceManager2.colorStyle.asState()
+    val themeProvider = remember(context) { ThemeProvider.INSTANCE.get(context) }
+    var colorScheme by remember(themeProvider) { mutableStateOf(themeProvider.colorScheme) }
 
-    val colorScheme = remember(accentColor, colorStyle.style) {
-        ThemeProvider.INSTANCE.get(context).colorScheme
+    DisposableEffect(themeProvider) {
+        // Preference callbacks can arrive on Dispatchers.Default. Keep both scheme reads
+        // and Compose state writes on main, and cancel queued work when leaving composition.
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        val listener = object : ThemeProvider.ColorSchemeChangeListener {
+            override fun onColorSchemeChanged() {
+                scope.launch { colorScheme = themeProvider.colorScheme }
+            }
+        }
+        themeProvider.addListener(listener)
+        // Close the gap between the first read and listener registration.
+        listener.onColorSchemeChanged()
+        onDispose {
+            scope.cancel()
+            themeProvider.removeListener(listener)
+        }
     }
 
     return colorScheme.toComposeColorScheme(isDark = darkTheme)

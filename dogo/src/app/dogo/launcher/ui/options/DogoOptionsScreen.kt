@@ -74,6 +74,7 @@ import app.dogo.launcher.privilege.TierStatus
 import app.dogo.launcher.ring.RingConfig
 import app.dogo.launcher.ring.RingStyle
 import app.dogo.launcher.themes.OmarchyThemeSource
+import app.dogo.launcher.themes.WallpaperThemeSection
 import app.dogo.launcher.voice.RealtimeProtocol
 import app.dogo.launcher.voice.VoiceConfig
 
@@ -222,6 +223,8 @@ fun DogoOptionsScreen(
                 config = state.ring,
                 onChange = viewModel::updateRing,
             )
+
+            WallpaperThemeSection()
 
             SectionLabel("Omarchy themes")
             ThemesSection(
