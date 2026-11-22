@@ -38,9 +38,13 @@ the Lawnchair project or Google. Please report Dogo bugs
   [java-llama.cpp](https://github.com/kherud/java-llama.cpp)). Weights are
   downloaded at runtime, not bundled in the APK, and the catalog only offers
   models that fit your phone's RAM and storage.
-- **Optional cloud escalation.** A router decides whether a request stays
-  on-device or goes to a cloud model, based on how confident the local model is
-  and how complex the request is.
+- **Choose your agent.** Like Omarchy, Dogo doesn't pick a vendor for you.
+  Use the on-device model, [Hermes Agent](https://github.com/NousResearch/hermes-agent)
+  on your own computer, OpenRouter, Groq, Claude, Ollama, or any
+  OpenAI-compatible server. Set it up in Dogo Options and use "Test connection"
+  to check it. API keys are encrypted with an Android Keystore key, and plain
+  http is only allowed to the phone itself (for `adb reverse` or Termux).
+  Whichever agent you choose, its proposals go through the same action gates.
 - **Action gates.** You choose which kinds of changes the agent may make, and
   whether each one still needs a confirmation tap.
 - **Google-free by design.** Points you to [F-Droid](https://f-droid.org/) and
