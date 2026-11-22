@@ -62,8 +62,8 @@ case "$cmd" in
     ./gradlew "assemble${VARIANT^}" "$@"
     ;;
   test)
-    if [ $# -gt 0 ]; then
-      ./gradlew ":test${VARIANT^}UnitTest" --tests "$1" "$@"
+    if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
+      t="$1"; shift; ./gradlew ":test${VARIANT^}UnitTest" --tests "$t" "$@"
     else
       ./gradlew ":test${VARIANT^}UnitTest" "$@"
     fi
