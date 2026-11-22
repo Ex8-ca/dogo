@@ -8,6 +8,7 @@ package app.dogo.launcher.ui.options
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -72,6 +73,8 @@ import app.dogo.launcher.privilege.TierStatus
 import app.dogo.launcher.ring.RingConfig
 import app.dogo.launcher.ring.RingStyle
 import app.dogo.launcher.themes.OmarchyThemeSource
+import app.dogo.launcher.voice.RealtimeProtocol
+import app.dogo.launcher.voice.VoiceConfig
 
 /**
  * Lets the user choose which agent Dogo talks to, which on-device model it
@@ -201,6 +204,15 @@ fun DogoOptionsScreen(
             state.access.filter { it.tier != Tier.NONE }.forEach { status ->
                 AccessRow(status, onRequest = { viewModel.requestAccess(status.tier) })
             }
+
+            SectionLabel("Voice")
+            VoiceSection(
+                config = state.voice,
+                check = state.voiceCheck,
+                onChange = viewModel::updateVoice,
+                onUseHermes = viewModel::useHermesForVoice,
+                onTest = viewModel::testVoice,
+            )
 
             SectionLabel("Dogo Ring")
             RingSection(
@@ -796,6 +808,99 @@ private fun RingSection(config: RingConfig, onChange: ((RingConfig) -> RingConfi
             if (!config.isAutomatic) {
                 TextButton(onClick = { onChange { it.copy(groups = null) } }) { Text("Reset") }
             }
+        }
+    }
+}
+
+@Composable
+private fun VoiceSection(
+    config: VoiceConfig,
+    check: DogoOptionsViewModel.ConnectionCheck,
+    onChange: ((VoiceConfig) -> VoiceConfig) -> Unit,
+    onUseHermes: () -> Unit,
+    onTest: () -> Unit,
+) {
+    var showKey by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "Talk to Dogo in real time with OpenAI's Realtime voice. Tap the mic in Dogo Setup. " +
+                "What you say goes to OpenAI; changes still wait for your Apply.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            SegmentedButton(
+                selected = config.source == VoiceConfig.Source.TOKEN_SERVER,
+                onClick = { onChange { it.copy(source = VoiceConfig.Source.TOKEN_SERVER) } },
+                shape = SegmentedButtonDefaults.itemShape(0, 2),
+            ) { Text("Key on my computer") }
+            SegmentedButton(
+                selected = config.source == VoiceConfig.Source.API_KEY,
+                onClick = { onChange { it.copy(source = VoiceConfig.Source.API_KEY) } },
+                shape = SegmentedButtonDefaults.itemShape(1, 2),
+            ) { Text("Key on this phone") }
+        }
+        if (config.source == VoiceConfig.Source.TOKEN_SERVER) {
+            Text(
+                "Recommended. Your OpenAI key stays on your computer; the phone gets a key that expires in 10 minutes.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(onClick = onUseHermes) { Text("Use my Hermes server") }
+            OutlinedTextField(
+                value = config.tokenUrl,
+                onValueChange = { v -> onChange { it.copy(tokenUrl = v.trim()) } },
+                label = { Text("Token service") },
+                placeholder = { Text("https://my-pc.ts.net:10000/dogo/realtime/token") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = config.serverKey,
+                onValueChange = { v -> onChange { it.copy(serverKey = v.trim()) } },
+                label = { Text("Token service key") },
+                singleLine = true,
+                visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = { TextButton(onClick = { showKey = !showKey }) { Text(if (showKey) "Hide" else "Show") } },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            OutlinedTextField(
+                value = config.apiKey,
+                onValueChange = { v -> onChange { it.copy(apiKey = v.trim()) } },
+                label = { Text("OpenAI API key") },
+                placeholder = { Text("sk-...") },
+                singleLine = true,
+                visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = { TextButton(onClick = { showKey = !showKey }) { Text(if (showKey) "Hide" else "Show") } },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "Stored encrypted on this phone. Anyone with the phone unlocked could use it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text("Voice", style = MaterialTheme.typography.labelLarge)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            RealtimeProtocol.VOICES.forEach { v ->
+                androidx.compose.material3.FilterChip(
+                    selected = config.voice == v,
+                    onClick = { onChange { it.copy(voice = v) } },
+                    label = { Text(v.replaceFirstChar { it.uppercase() }) },
+                )
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = onTest, enabled = check !is DogoOptionsViewModel.ConnectionCheck.Running) { Text("Test voice key") }
+            if (check is DogoOptionsViewModel.ConnectionCheck.Running) {
+                CircularProgressIndicator(Modifier.padding(start = 12.dp).size(20.dp), strokeWidth = 2.dp)
+            }
+        }
+        when (check) {
+            is DogoOptionsViewModel.ConnectionCheck.Ok -> Text(check.reply, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            is DogoOptionsViewModel.ConnectionCheck.Failed -> Text(check.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            else -> Unit
         }
     }
 }

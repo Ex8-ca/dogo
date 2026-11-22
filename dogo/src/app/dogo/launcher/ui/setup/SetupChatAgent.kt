@@ -57,8 +57,10 @@ object SetupChatAgent {
 
         set_theme changes only the Dogo launcher (light, dark or system).
         arrange_ring sets up the Dogo Ring, the radial menu that opens when the
-        user touches and holds the home screen. Use 3 to 7 short group names
-        (one word if possible); "style" is optional: glow, radar or minimal.
+        user touches and holds the home screen. Both fields are optional: send
+        only "style" (glow, radar or minimal) to change the look and keep the
+        current groups, e.g. {"action": "arrange_ring", "params": {"style": "radar"}}.
+        When grouping apps, use 3 to 7 short group names (one word if possible).
         set_system_dark_mode changes the whole phone's dark mode.
         Only use package names from the installed apps list below. If an app the
         user mentions isn't installed, say so instead of guessing a package name.

@@ -5,6 +5,7 @@
 
 package app.dogo.launcher.ui.setup
 
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -42,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -64,6 +69,12 @@ fun DogoSetupScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var input by remember { mutableStateOf("") }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val micPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { granted -> if (granted) viewModel.toggleVoice() }
+    // Leaving the screen ends the call; a mic left open in the background would be a surprise.
+    androidx.compose.runtime.DisposableEffect(viewModel) { onDispose { viewModel.stopVoice() } }
 
     // Pick up an agent changed in Dogo Options when returning to the chat.
     LifecycleResumeEffect(viewModel) {
@@ -149,7 +160,20 @@ fun DogoSetupScreen(
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                VoiceControls(
+                    voice = state.voice,
+                    onToggle = {
+                        if (state.voice != SetupChatViewModel.VoiceState.Off || hasMic(context)) {
+                            viewModel.toggleVoice()
+                        } else {
+                            micPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    onMute = viewModel::setVoiceMuted,
+                    modifier = Modifier.weight(1f),
+                )
                 IconButton(
                     onClick = {
                         viewModel.send(input)
@@ -159,6 +183,65 @@ fun DogoSetupScreen(
                 ) {
                     Icon(Icons.Default.Send, contentDescription = "Send")
                 }
+            }
+        }
+    }
+}
+
+private fun hasMic(context: android.content.Context) = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) ==
+    android.content.pm.PackageManager.PERMISSION_GRANTED
+
+@Composable
+private fun VoiceControls(
+    voice: SetupChatViewModel.VoiceState,
+    onToggle: () -> Unit,
+    onMute: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        val live = voice as? SetupChatViewModel.VoiceState.Live
+        val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "voice")
+        val scale by pulse.animateFloat(
+            initialValue = 1f,
+            targetValue = if (live?.speaking == true) 1.25f else 1.08f,
+            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                androidx.compose.animation.core.tween(if (live?.speaking == true) 350 else 1200),
+                androidx.compose.animation.core.RepeatMode.Reverse,
+            ),
+            label = "pulse",
+        )
+        androidx.compose.material3.FilledIconButton(
+            onClick = onToggle,
+            modifier = Modifier.size(52.dp).then(if (live != null) Modifier.graphicsLayer(scaleX = scale, scaleY = scale) else Modifier),
+            colors = if (voice == SetupChatViewModel.VoiceState.Off) {
+                androidx.compose.material3.IconButtonDefaults.filledIconButtonColors()
+            } else {
+                androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.error)
+            },
+        ) {
+            when (voice) {
+                SetupChatViewModel.VoiceState.Off -> Icon(androidx.compose.material.icons.Icons.Filled.Mic, contentDescription = "Talk to Dogo")
+                SetupChatViewModel.VoiceState.Connecting -> CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onError)
+                is SetupChatViewModel.VoiceState.Live -> Icon(androidx.compose.material.icons.Icons.Filled.CallEnd, contentDescription = "Stop talking")
+            }
+        }
+        Text(
+            when {
+                voice == SetupChatViewModel.VoiceState.Connecting -> "Connecting…"
+                live?.muted == true -> "Muted"
+                live?.speaking == true -> "Listening…"
+                live != null -> "Live. Just talk."
+                else -> "Talk"
+            },
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(start = 10.dp).weight(1f),
+        )
+        if (live != null) {
+            IconButton(onClick = { onMute(!live.muted) }) {
+                Icon(
+                    if (live.muted) androidx.compose.material.icons.Icons.Filled.MicOff else androidx.compose.material.icons.Icons.Filled.Mic,
+                    contentDescription = if (live.muted) "Unmute" else "Mute",
+                )
             }
         }
     }

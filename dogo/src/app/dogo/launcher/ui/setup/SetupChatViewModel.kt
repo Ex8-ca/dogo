@@ -28,7 +28,12 @@ import app.dogo.launcher.privilege.SystemAccess
 import app.dogo.launcher.ui.options.OptionsStore
 import app.dogo.launcher.ui.setup.SetupChatAgent.InstalledApp
 import app.dogo.launcher.ui.setup.SetupChatAgent.PhoneContext
+import app.dogo.launcher.voice.RealtimeProtocol
+import app.dogo.launcher.voice.VoiceSession
+import app.dogo.launcher.voice.VoiceStore
+import app.dogo.launcher.voice.VoiceTokens
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -80,7 +85,17 @@ class SetupChatViewModel(
         val modelName: String? = null,
         val status: String? = null,
         val options: AgentOptions = AgentOptions(),
+        val voice: VoiceState = VoiceState.Off,
     )
+
+    /** The live voice conversation, if any. */
+    sealed interface VoiceState {
+        data object Off : VoiceState
+        data object Connecting : VoiceState
+
+        /** [speaking] is true while the user is talking. */
+        data class Live(val speaking: Boolean = false, val muted: Boolean = false) : VoiceState
+    }
 
     private val turns = mutableListOf<ChatTurn>()
     private val runner = ModelRunner.forContext(application)
@@ -231,6 +246,7 @@ class SetupChatViewModel(
                 proposalId,
                 if (outcome.ok) ActionState.Applied(outcome.message) else ActionState.Failed(outcome.message),
             )
+            tellVoice(if (outcome.ok) "The user applied a change: ${outcome.message}" else "A change failed: ${outcome.message}")
         }
     }
 
@@ -335,7 +351,99 @@ class SetupChatViewModel(
         _uiState.update { it.copy(status = null) }
     }
 
+    // ---- voice ---------------------------------------------------------------
+
+    private var voice: VoiceSession? = null
+    private val voiceStore = VoiceStore(application)
+
+    /** Starts or stops talking. The screen asks for the microphone first. */
+    fun toggleVoice() {
+        if (_uiState.value.voice != VoiceState.Off) {
+            stopVoice()
+            return
+        }
+        val config = voiceStore.load()
+        config.problem()?.let { problem ->
+            _uiState.update { it.copy(status = "Voice isn't set up yet. $problem (Dogo Options > Voice)") }
+            return
+        }
+        _uiState.update { it.copy(voice = VoiceState.Connecting, status = null) }
+        viewModelScope.launch {
+            // Fetch the key while the app list loads; both take a moment.
+            val tokenJob = viewModelScope.async { VoiceTokens.fetch(config) }
+            phone = loadPhoneContext()
+            val token = tokenJob.await().getOrElse { e ->
+                _uiState.update { it.copy(voice = VoiceState.Off, status = "Couldn't start voice: ${e.message}") }
+                return@launch
+            }
+            // Earlier typed turns give the voice agent the same context.
+            val history = turns.takeLast(10).joinToString("\n") { (if (it.role == ChatTurn.Role.USER) "User: " else "Assistant: ") + it.text }
+            val instructions = SetupChatAgent.systemPromptFor(phone) +
+                if (history.isNotEmpty()) "\n\nConversation so far (typed):\n$history" else ""
+            // Debug builds: files/voice_test.pcm (24 kHz mono 16-bit) is "spoken" once, for on-device tests.
+            val injected = if (com.android.launcher3.BuildConfig.DEBUG) java.io.File(getApplication<Application>().filesDir, "voice_test.pcm") else null
+            voice = VoiceSession(token, config.model, instructions, config.voice, onEvent = { event ->
+                viewModelScope.launch(Dispatchers.Main) { onVoiceEvent(event) }
+            }, injectedSpeech = injected).also { it.start() }
+        }
+    }
+
+    fun setVoiceMuted(muted: Boolean) {
+        voice?.setMuted(muted)
+        _uiState.update { s -> (s.voice as? VoiceState.Live)?.let { s.copy(voice = it.copy(muted = muted)) } ?: s }
+    }
+
+    fun stopVoice() {
+        voice?.stop()
+        voice = null
+        _uiState.update { it.copy(voice = VoiceState.Off) }
+    }
+
+    private suspend fun onVoiceEvent(event: RealtimeProtocol.Event) {
+        when (event) {
+            RealtimeProtocol.Event.Ready -> _uiState.update { it.copy(voice = VoiceState.Live()) }
+
+            RealtimeProtocol.Event.UserStartedSpeaking, RealtimeProtocol.Event.UserStoppedSpeaking -> _uiState.update { s ->
+                (s.voice as? VoiceState.Live)?.let { s.copy(voice = it.copy(speaking = event == RealtimeProtocol.Event.UserStartedSpeaking)) } ?: s
+            }
+
+            is RealtimeProtocol.Event.UserSaid -> {
+                turns += ChatTurn(ChatTurn.Role.USER, event.text)
+                _uiState.update { it.copy(messages = it.messages + Message(event.text, fromUser = true)) }
+            }
+
+            is RealtimeProtocol.Event.AssistantSaid -> {
+                turns += ChatTurn(ChatTurn.Role.ASSISTANT, event.text)
+                _uiState.update { it.copy(messages = it.messages + Message(event.text, fromUser = false)) }
+            }
+
+            is RealtimeProtocol.Event.ProposeChanges -> {
+                val options = _uiState.value.options
+                val proposals = event.actions.map { Proposal(nextProposalId++, it, initialState(it, options)) }
+                if (proposals.isNotEmpty()) {
+                    _uiState.update { it.copy(messages = it.messages + Message(proposals.size.let { n -> if (n == 1) "Proposed change:" else "Proposed changes:" }, fromUser = false, proposals = proposals)) }
+                    if (!options.requireConfirmation) autoApply(proposals)
+                }
+                RealtimeProtocol.toolResult(event.callId, RealtimeProtocol.proposalResult(proposals.size, event.rejected)).forEach { voice?.send(it) }
+            }
+
+            is RealtimeProtocol.Event.Failed -> {
+                voice?.stop()
+                voice = null
+                _uiState.update { it.copy(voice = VoiceState.Off, status = "Voice stopped: ${event.message}") }
+            }
+
+            else -> Unit
+        }
+    }
+
+    /** Lets the voice agent know a card was applied, so it can mention it. */
+    private fun tellVoice(text: String) {
+        voice?.send(RealtimeProtocol.note(text))
+    }
+
     override fun onCleared() {
+        voice?.stop()
         super.onCleared()
         runner.close()
     }

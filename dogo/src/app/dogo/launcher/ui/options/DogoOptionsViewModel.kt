@@ -27,6 +27,9 @@ import app.dogo.launcher.privilege.TierStatus
 import app.dogo.launcher.ring.DogoRing
 import app.dogo.launcher.ring.RingConfig
 import app.dogo.launcher.themes.OmarchyThemeSource
+import app.dogo.launcher.voice.VoiceConfig
+import app.dogo.launcher.voice.VoiceStore
+import app.dogo.launcher.voice.VoiceTokens
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -84,6 +87,8 @@ class DogoOptionsViewModel(
         val themes: ThemesState = ThemesState(),
         val termux: TermuxState = TermuxState(),
         val ring: RingConfig = RingConfig(),
+        val voice: VoiceConfig = VoiceConfig(),
+        val voiceCheck: ConnectionCheck = ConnectionCheck.Idle,
         val recommendation: HardwareProfile.Recommendation? = null,
         val models: List<ModelRow> = emptyList(),
         val activeDownload: String? = null,
@@ -101,6 +106,8 @@ class DogoOptionsViewModel(
     private val pluginStore = PluginStore(application)
     private val themeSource = OmarchyThemeSource()
 
+    // Declared before init: refreshAccess() in init reads it.
+    private val voiceStore = VoiceStore(application)
     private val _uiState = MutableStateFlow(UiState(options = store.load()))
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
@@ -187,6 +194,36 @@ class DogoOptionsViewModel(
      */
     var onRequestTermuxPermission: (() -> Unit)? = null
 
+    fun updateVoice(change: (VoiceConfig) -> VoiceConfig) {
+        val next = change(_uiState.value.voice)
+        voiceStore.save(next)
+        _uiState.update { it.copy(voice = next, voiceCheck = ConnectionCheck.Idle) }
+    }
+
+    /** Fills in the token service next to the Hermes address, with the Hermes key. */
+    fun useHermesForVoice() {
+        val hermes = _uiState.value.options.agentConfigs[app.dogo.launcher.agent.backend.AgentCatalog.HERMES.id]
+        val url = hermes?.baseUrl?.let { VoiceConfig.tokenUrlNextTo(it) }
+        val key = hermes?.apiKey
+        if (url == null || key.isNullOrBlank()) {
+            _uiState.update { it.copy(voiceCheck = ConnectionCheck.Failed("Set up Hermes Agent first (https address and key), or enter the token service by hand.")) }
+            return
+        }
+        updateVoice { it.copy(source = VoiceConfig.Source.TOKEN_SERVER, tokenUrl = url, serverKey = key) }
+    }
+
+    fun testVoice() {
+        _uiState.update { it.copy(voiceCheck = ConnectionCheck.Running) }
+        viewModelScope.launch {
+            VoiceTokens.fetch(_uiState.value.voice)
+                .onSuccess { token ->
+                    val note = if (token.startsWith("ek_")) "Got a 10-minute voice key. Ready to talk." else "Key saved. It's checked when you start talking."
+                    _uiState.update { it.copy(voiceCheck = ConnectionCheck.Ok(note, emptyList())) }
+                }
+                .onFailure { e -> _uiState.update { it.copy(voiceCheck = ConnectionCheck.Failed(e.message ?: "Couldn't get a voice key.")) } }
+        }
+    }
+
     fun updateRing(change: (RingConfig) -> RingConfig) {
         val app = getApplication<Application>()
         DogoRing.update(app, change)
@@ -204,6 +241,7 @@ class DogoOptionsViewModel(
             it.copy(
                 termux = TermuxState(Termux.isInstalled(app), Termux.hasPermission(app)),
                 ring = DogoRing.config(app),
+                voice = voiceStore.load(),
             )
         }
         viewModelScope.launch {

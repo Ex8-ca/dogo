@@ -36,6 +36,11 @@ the Lawnchair project or Google. Please report Dogo bugs
   then to an app, and let go, all in one swipe; or release in the middle and
   tap. Apps are grouped automatically, or ask Dogo to arrange them. Three
   styles (Glow, Radar, Minimal) that take their colour from your theme.
+- **Talk to it.** Tap the mic in Dogo Setup and just talk. OpenAI's Realtime
+  voice answers out loud, you can interrupt it, and the changes it suggests
+  show up as cards to approve. The OpenAI key can stay on your own computer
+  ([`tools/realtime`](tools/realtime)), so the phone only ever holds a key that
+  expires in ten minutes.
 - **Conversational setup.** A chat where the agent proposes concrete changes:
   Dogo's theme, the phone's dark mode, wallpaper, folders, home-screen apps,
   hiding apps, animation speed. Each change shows up as a card with **Apply**.

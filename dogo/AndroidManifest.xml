@@ -15,6 +15,9 @@
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
     </application>
 
+    <!-- Talking to Dogo (OpenAI Realtime voice). Asked for only when the user taps the mic. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <!-- Lets the user run a CLI agent (Claude Code, OpenCode...) in Termux. -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
