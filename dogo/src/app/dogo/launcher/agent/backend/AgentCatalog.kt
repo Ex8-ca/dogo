@@ -85,6 +85,21 @@ object AgentCatalog {
         keyHint = "API_SERVER_KEY from ~/.hermes/.env",
     )
 
+    /**
+     * Hermes with no tools, for reading untrusted text only (see [ToolFreeAccess]). It is
+     * deliberately not in [all]: it is a second address for the same agent, never a chat choice.
+     */
+    val HERMES_SAFE = AgentPreset(
+        id = ToolFreeRoute.CONFIG_ID,
+        displayName = "Hermes (tools off)",
+        kind = AgentKind.OPENAI_COMPATIBLE,
+        blurb = "A separate Hermes profile on your server that has no tools at all.",
+        defaultBaseUrl = HERMES.defaultBaseUrl,
+        defaultModel = "hermes-agent",
+        key = KeyRequirement.REQUIRED,
+        keyHint = "The key of your tools-off profile, not the normal one",
+    )
+
     val OPENROUTER = AgentPreset(
         id = "openrouter",
         displayName = "OpenRouter",
