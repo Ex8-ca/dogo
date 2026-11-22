@@ -15,27 +15,20 @@ import app.dogo.launcher.agent.ActionExecutor
 import app.dogo.launcher.agent.AgentOptions
 import app.dogo.launcher.agent.backend.AgentBackend
 import app.dogo.launcher.agent.backend.AgentBackends
-import app.dogo.launcher.agent.backend.ChatTurn
 import app.dogo.launcher.agent.backend.OnDeviceBackend
 import app.dogo.launcher.agent.backend.ReplyOptions
 import app.dogo.launcher.agent.backend.resolve
 import app.dogo.launcher.llm.HardwareProfile
 import app.dogo.launcher.llm.ModelCatalog
 import app.dogo.launcher.llm.ModelRunner
-import app.dogo.launcher.privilege.ActionApplier
 import app.dogo.launcher.privilege.ActionRequirements
-import app.dogo.launcher.privilege.PrivilegePlanner
 import app.dogo.launcher.privilege.SystemAccess
 import app.dogo.launcher.ui.options.OptionsStore
 import app.dogo.launcher.ui.setup.SetupChatAgent.InstalledApp
 import app.dogo.launcher.ui.setup.SetupChatAgent.PhoneContext
-import app.dogo.launcher.voice.RealtimeProtocol
-import app.dogo.launcher.voice.VoiceSession
+import app.dogo.launcher.voice.DogoCall
 import app.dogo.launcher.voice.VoiceStore
-import app.dogo.launcher.voice.VoiceTokens
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -43,8 +36,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Drives the setup chat: sends the conversation to the chosen agent, parses
- * any actions it proposes, and holds the transcript.
+ * Drives the chat side of the assistant: sends the open conversation to the
+ * chosen agent and parses any actions it proposes. The conversation itself,
+ * shared with voice calls and saved to history, lives in [Assistant]; the
+ * voice is [DogoCall], the same call as the light on the home screen.
  *
  * Nothing is applied until the user approves it. Proposed actions are
  * checked against the same [AgentOptions] gates whichever agent proposed them,
@@ -77,49 +72,44 @@ class SetupChatViewModel(
         val text: String,
         val fromUser: Boolean,
         val proposals: List<Proposal> = emptyList(),
+        /** In-memory thumbnail; [photoFile] is the saved copy. */
         val photo: android.graphics.Bitmap? = null,
+        val at: Long = System.currentTimeMillis(),
+        /** Said out loud during a call, not typed. */
+        val spoken: Boolean = false,
+        /** A small status line ("Asked Hermes…"), not part of what the agent sees. */
+        val note: Boolean = false,
+        val photoFile: String? = null,
     )
 
     data class UiState(
+        val conversationId: String = "",
         val messages: List<Message> = emptyList(),
         val busy: Boolean = false,
         val modelReady: Boolean = false,
         val modelName: String? = null,
         val status: String? = null,
         val options: AgentOptions = AgentOptions(),
-        val voice: VoiceState = VoiceState.Off,
     )
 
-    /** The live voice conversation, if any. */
-    sealed interface VoiceState {
-        data object Off : VoiceState
-        data object Connecting : VoiceState
-
-        /** [speaking] is true while the user is talking. */
-        data class Live(val speaking: Boolean = false, val muted: Boolean = false) : VoiceState
-    }
-
-    private val turns get() = ChatMemory.turns
     private val runner = ModelRunner.forContext(application)
     private val optionsStore = OptionsStore(application)
     private var backend: AgentBackend? = null
     private val access = SystemAccess(application)
-    private val applier = ActionApplier(application, access)
-    private var nextProposalId: Long
-        get() = ChatMemory.nextProposalId
-        set(value) {
-            ChatMemory.nextProposalId = value
-        }
 
     /** Refreshed before each turn, so the agent sees what is actually possible. */
     @Volatile private var phone = PhoneContext()
 
     // Kept outside the ViewModel: changing the accent or theme restarts this
     // screen, and the conversation (and any change being applied) must survive it.
-    private val _uiState = ChatMemory.state.also { st -> st.update { it.copy(voice = VoiceState.Off) } }
+    private val _uiState = Assistant.state
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+    val history = Assistant.history
+    val call = DogoCall.state
+    val level = DogoCall.level
 
     init {
+        Assistant.init(application)
         reloadOptions()
     }
 
@@ -197,7 +187,6 @@ class SetupChatViewModel(
     }
 
     fun sendPhoto(photo: android.graphics.Bitmap, text: String) {
-        android.util.Log.i("DogoPhoto", "sending ${photo.width}x${photo.height} busy=${_uiState.value.busy} agent=${_uiState.value.options.agent.id}")
         if (_uiState.value.busy) return
         if (!_uiState.value.options.agent.seesImages) {
             _uiState.update {
@@ -205,14 +194,15 @@ class SetupChatViewModel(
             }
             return
         }
-        viewModelScope.launch {
+        Assistant.scope.launch {
             val jpeg = withContext(Dispatchers.Default) { PhotoCodec.encode(photo) }
             val thumb = withContext(Dispatchers.Default) { PhotoCodec.thumbnail(photo) }
-            send(text.trim().ifEmpty { PHOTO_PROMPT }, listOf(jpeg), thumb)
+            val saved = withContext(Dispatchers.IO) { Assistant.savePhoto(thumb) }
+            send(text.trim().ifEmpty { PHOTO_PROMPT }, listOf(jpeg), thumb, saved)
         }
     }
 
-    fun send(text: String, images: List<String> = emptyList(), thumbnail: android.graphics.Bitmap? = null) {
+    fun send(text: String, images: List<String> = emptyList(), thumbnail: android.graphics.Bitmap? = null, photoFile: String? = null) {
         val trimmed = text.trim()
         if (trimmed.isEmpty() || _uiState.value.busy) return
         val active = backend
@@ -223,42 +213,32 @@ class SetupChatViewModel(
             return
         }
 
-        _uiState.update { state ->
-            state.copy(
-                messages = state.messages + Message(trimmed, fromUser = true, photo = thumbnail),
-                busy = true,
-                status = null,
-            )
-        }
-        turns += ChatTurn(ChatTurn.Role.USER, trimmed, images)
+        // Everything said so far, typed or spoken; the photo rides only on this turn.
+        val past = Assistant.turns()
+        val asked = Message(trimmed, fromUser = true, photo = thumbnail, photoFile = photoFile)
+        _uiState.update { it.copy(busy = true, status = null) }
+        Assistant.add(asked)
+        val conversation = _uiState.value.conversationId
 
-        ChatMemory.scope.launch {
+        Assistant.scope.launch {
             phone = loadPhoneContext()
             val options = _uiState.value.options
             active.reply(
                 SetupChatAgent.systemPromptFor(phone),
-                turns.toList(),
+                past + app.dogo.launcher.agent.backend.ChatTurn(app.dogo.launcher.agent.backend.ChatTurn.Role.USER, trimmed, images),
                 ReplyOptions(effort = options.thinkingLevel.effort),
             )
                 .onSuccess { reply ->
-                    // A photo is sent once; later turns carry the reply that describes it.
-                    turns.replaceAll { if (it.images.isEmpty()) it else it.copy(images = emptyList(), text = it.text + "\n(The user sent a photo here.)") }
-                    turns += ChatTurn(ChatTurn.Role.ASSISTANT, reply)
-                    val proposals = ActionExecutor.parseActions(reply).map { action ->
-                        Proposal(nextProposalId++, action, initialState(action, options))
-                    }
-                    _uiState.update { state ->
-                        state.copy(
-                            messages = state.messages + Message(reply, fromUser = false, proposals = proposals),
-                            busy = false,
-                        )
-                    }
+                    _uiState.update { it.copy(busy = false) }
+                    // Switched conversations while waiting: the reply belongs to the old one.
+                    if (_uiState.value.conversationId != conversation) return@onSuccess
+                    val proposals = Assistant.proposalsFor(ActionExecutor.parseActions(reply))
+                    Assistant.add(Message(reply, fromUser = false, proposals = proposals))
                     if (!options.requireConfirmation) autoApply(proposals)
                 }
                 .onFailure { e ->
-                    // Keep what the user typed on screen, but take the turn out
-                    // of the history so a retry doesn't send it twice.
-                    turns.removeAt(turns.lastIndex)
+                    // Keep what the user typed out of the history so a retry doesn't send it twice.
+                    Assistant.removeLast(asked)
                     _uiState.update {
                         it.copy(busy = false, status = "The agent couldn't reply: ${e.message}")
                     }
@@ -267,55 +247,21 @@ class SetupChatViewModel(
     }
 
     /** Carries out an approved proposal. */
-    fun approve(proposalId: Long) {
-        val proposal = findProposal(proposalId) ?: return
-        if (proposal.state !is ActionState.Ready) return
-        if (!_uiState.value.options.isAllowed(proposal.action)) {
-            setProposalState(proposalId, ActionState.Disallowed)
-            return
-        }
-        setProposalState(proposalId, ActionState.Applying)
-        ChatMemory.scope.launch {
-            val outcome = applier.apply(proposal.action)
-            setProposalState(
-                proposalId,
-                if (outcome.ok) ActionState.Applied(outcome.message) else ActionState.Failed(outcome.message),
-            )
-            tellVoice(if (outcome.ok) "The user applied a change: ${outcome.message}" else "A change failed: ${outcome.message}")
-        }
-    }
+    fun approve(proposalId: Long) = Assistant.approve(proposalId)
 
-    fun dismiss(proposalId: Long) {
-        val proposal = findProposal(proposalId) ?: return
-        if (proposal.state is ActionState.Applying || proposal.state is ActionState.Applied) return
-        setProposalState(proposalId, ActionState.Dismissed)
-    }
+    fun dismiss(proposalId: Long) = Assistant.dismiss(proposalId)
 
     /**
      * Re-checks proposals that were waiting for access, e.g. after the user
      * set up Shizuku and came back to the chat.
      */
-    fun recheckBlocked() {
-        val options = _uiState.value.options
-        viewModelScope.launch {
-            val availability = access.availability()
-            _uiState.update { state ->
-                state.copy(
-                    messages = state.messages.map { message ->
-                        message.copy(
-                            proposals = message.proposals.map { p ->
-                                if (p.state is ActionState.Blocked || p.state is ActionState.Ready || p.state is ActionState.Disallowed) {
-                                    p.copy(state = stateFor(p.action, options, availability))
-                                } else {
-                                    p
-                                }
-                            },
-                        )
-                    },
-                )
-            }
-        }
-    }
+    fun recheckBlocked() = Assistant.recheckBlocked()
+
+    fun newConversation() = Assistant.newConversation()
+
+    fun openConversation(id: String) = Assistant.open(id)
+
+    fun deleteConversation(id: String) = Assistant.delete(id)
 
     /**
      * Applies every proposal the user has allowed to skip confirmation. Runs
@@ -325,38 +271,24 @@ class SetupChatViewModel(
         proposals.filter { it.state is ActionState.Ready }.forEach { approve(it.id) }
     }
 
-    private suspend fun initialState(action: Action, options: AgentOptions): ActionState = stateFor(action, options, access.availability())
+    // ---- voice: the same call as the light on the home screen ----------------
 
-    private fun stateFor(
-        action: Action,
-        options: AgentOptions,
-        availability: PrivilegePlanner.Availability,
-    ): ActionState {
-        if (!options.isAllowed(action)) return ActionState.Disallowed
-        return when (val plan = PrivilegePlanner.plan(action, availability, getApplication<Application>().packageName)) {
-            is PrivilegePlanner.Plan.Blocked -> ActionState.Blocked(plan.hint)
-            PrivilegePlanner.Plan.InLauncher -> ActionState.Ready("Launcher only")
-            is PrivilegePlanner.Plan.WithPermission -> ActionState.Ready("Granted permission")
-            is PrivilegePlanner.Plan.ViaShell -> ActionState.Ready(plan.tier.title)
-            is PrivilegePlanner.Plan.ViaPlugin -> ActionState.Ready("Plugin ${plan.pluginId}")
+    /** Starts or stops talking in this conversation. The screen asks for the microphone first. */
+    fun toggleVoice() {
+        if (DogoCall.state.value.phase != DogoCall.Phase.IDLE) {
+            DogoCall.stop()
+            return
         }
+        VoiceStore(getApplication()).load().problem()?.let { problem ->
+            _uiState.update { it.copy(status = "Voice isn't set up yet. $problem (Dogo Options > Voice)") }
+            return
+        }
+        DogoCall.start(getApplication())
     }
 
-    private fun findProposal(id: Long): Proposal? = _uiState.value.messages.asSequence().flatMap { it.proposals }.firstOrNull { it.id == id }
+    fun setVoiceMuted(muted: Boolean) = DogoCall.setMuted(muted)
 
-    private fun setProposalState(id: Long, state: ActionState) {
-        _uiState.update { ui ->
-            ui.copy(
-                messages = ui.messages.map { m ->
-                    if (m.proposals.none { it.id == id }) {
-                        m
-                    } else {
-                        m.copy(proposals = m.proposals.map { if (it.id == id) it.copy(state = state) else it })
-                    }
-                },
-            )
-        }
-    }
+    fun stopVoice() = DogoCall.stop()
 
     private suspend fun loadPhoneContext(): PhoneContext = withContext(Dispatchers.IO) {
         val app = getApplication<Application>()
@@ -389,116 +321,7 @@ class SetupChatViewModel(
         _uiState.update { it.copy(status = null) }
     }
 
-    // ---- voice ---------------------------------------------------------------
-
-    private var voice: VoiceSession? = null
-    private var handoff: app.dogo.launcher.voice.HermesHandoff? = null
-
-    private fun hermesHandoff(): app.dogo.launcher.voice.HermesHandoff? {
-        val options = _uiState.value.options
-        val hermes = app.dogo.launcher.agent.backend.AgentCatalog.HERMES
-        val resolved = hermes.resolve(options.agentConfigs[hermes.id])
-        val key = resolved.apiKey
-        if (resolved.problems().isNotEmpty() || key.isNullOrBlank()) return null
-        return app.dogo.launcher.voice.HermesHandoff(resolved.baseUrl, key)
-    }
-    private val voiceStore = VoiceStore(application)
-
-    /** Starts or stops talking. The screen asks for the microphone first. */
-    fun toggleVoice() {
-        if (_uiState.value.voice != VoiceState.Off) {
-            stopVoice()
-            return
-        }
-        val config = voiceStore.load()
-        config.problem()?.let { problem ->
-            _uiState.update { it.copy(status = "Voice isn't set up yet. $problem (Dogo Options > Voice)") }
-            return
-        }
-        _uiState.update { it.copy(voice = VoiceState.Connecting, status = null) }
-        viewModelScope.launch {
-            // Fetch the key while the app list loads; both take a moment.
-            val tokenJob = viewModelScope.async { VoiceTokens.fetch(config) }
-            phone = loadPhoneContext()
-            val token = tokenJob.await().getOrElse { e ->
-                _uiState.update { it.copy(voice = VoiceState.Off, status = "Couldn't start voice: ${e.message}") }
-                return@launch
-            }
-            // Earlier typed turns give the voice agent the same context.
-            val history = turns.takeLast(10).joinToString("\n") { (if (it.role == ChatTurn.Role.USER) "User: " else "Assistant: ") + it.text }
-            val instructions = SetupChatAgent.systemPromptFor(phone) +
-                if (history.isNotEmpty()) "\n\nConversation so far (typed):\n$history" else ""
-            // Debug builds: files/voice_test.pcm (24 kHz mono 16-bit) is "spoken" once, for on-device tests.
-            val injected = if (com.android.launcher3.BuildConfig.DEBUG) java.io.File(getApplication<Application>().filesDir, "voice_test.pcm") else null
-            handoff = hermesHandoff()
-            voice = VoiceSession(token, config.model, instructions, config.voice, handoff = handoff != null, onEvent = { event ->
-                viewModelScope.launch(Dispatchers.Main) { onVoiceEvent(event) }
-            }, injectedSpeech = injected).also { it.start() }
-        }
-    }
-
-    fun setVoiceMuted(muted: Boolean) {
-        voice?.setMuted(muted)
-        _uiState.update { s -> (s.voice as? VoiceState.Live)?.let { s.copy(voice = it.copy(muted = muted)) } ?: s }
-    }
-
-    fun stopVoice() {
-        voice?.stop()
-        voice = null
-        _uiState.update { it.copy(voice = VoiceState.Off) }
-    }
-
-    private suspend fun onVoiceEvent(event: RealtimeProtocol.Event) {
-        when (event) {
-            RealtimeProtocol.Event.Ready -> _uiState.update { it.copy(voice = VoiceState.Live()) }
-
-            RealtimeProtocol.Event.UserStartedSpeaking, RealtimeProtocol.Event.UserStoppedSpeaking -> _uiState.update { s ->
-                (s.voice as? VoiceState.Live)?.let { s.copy(voice = it.copy(speaking = event == RealtimeProtocol.Event.UserStartedSpeaking)) } ?: s
-            }
-
-            is RealtimeProtocol.Event.UserSaid -> {
-                turns += ChatTurn(ChatTurn.Role.USER, event.text)
-                _uiState.update { it.copy(messages = it.messages + Message(event.text, fromUser = true)) }
-            }
-
-            is RealtimeProtocol.Event.AssistantSaid -> {
-                turns += ChatTurn(ChatTurn.Role.ASSISTANT, event.text)
-                _uiState.update { it.copy(messages = it.messages + Message(event.text, fromUser = false)) }
-            }
-
-            is RealtimeProtocol.Event.ProposeChanges -> {
-                val options = _uiState.value.options
-                val proposals = event.actions.map { Proposal(nextProposalId++, it, initialState(it, options)) }
-                if (proposals.isNotEmpty()) {
-                    _uiState.update { it.copy(messages = it.messages + Message(proposals.size.let { n -> if (n == 1) "Proposed change:" else "Proposed changes:" }, fromUser = false, proposals = proposals)) }
-                    if (!options.requireConfirmation) autoApply(proposals)
-                }
-                RealtimeProtocol.toolResult(event.callId, RealtimeProtocol.proposalResult(proposals.size, event.rejected)).forEach { voice?.send(it) }
-            }
-
-            is RealtimeProtocol.Event.UseTools -> {
-                _uiState.update { it.copy(messages = it.messages + Message("Looking into it on your computer…", fromUser = false)) }
-                val answer = handoff?.ask(event.request) ?: "Hermes isn't set up on this phone, so I can't use those tools."
-                RealtimeProtocol.toolResult(event.callId, answer.take(6_000)).forEach { voice?.send(it) }
-            }
-
-            is RealtimeProtocol.Event.Failed -> {
-                voice?.stop()
-                voice = null
-                _uiState.update { it.copy(voice = VoiceState.Off, status = "Voice stopped: ${event.message}") }
-            }
-
-            else -> Unit
-        }
-    }
-
-    /** Lets the voice agent know a card was applied, so it can mention it. */
-    private fun tellVoice(text: String) {
-        voice?.send(RealtimeProtocol.note(text))
-    }
-
     override fun onCleared() {
-        voice?.stop()
         super.onCleared()
         runner.close()
     }
@@ -506,16 +329,3 @@ class SetupChatViewModel(
 
 /** What a photo sent without words means. */
 internal const val PHOTO_PROMPT = "Make my phone look like the one in this photo, as closely as you can."
-
-/**
- * The setup conversation, held for the life of the launcher process rather than
- * one screen. Settings like the accent colour restart the screen when applied;
- * without this the chat (and the rest of the proposed changes) would vanish.
- */
-internal object ChatMemory {
-    val state = MutableStateFlow(SetupChatViewModel.UiState())
-    val turns: MutableList<ChatTurn> = java.util.Collections.synchronizedList(mutableListOf())
-
-    @Volatile var nextProposalId = 0L
-    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main.immediate)
-}

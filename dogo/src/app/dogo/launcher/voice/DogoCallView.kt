@@ -34,9 +34,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import app.dogo.launcher.ui.setup.SetupChatViewModel.ActionState as AS
 import com.android.launcher3.AbstractFloatingView
 import com.android.launcher3.Launcher
 import com.android.launcher3.util.Themes
@@ -73,14 +77,33 @@ class DogoCallView private constructor(private val launcher: Launcher) : Abstrac
         mIsOpen = true
         addView(
             ComposeView(launcher).apply {
-                setContent { CallScreen(accent = Color(Themes.getColorAccent(launcher)), onClose = { close(true) }) }
+                setContent {
+                    CallScreen(
+                        accent = Color(Themes.getColorAccent(launcher)),
+                        onClose = { close(true) },
+                        // The same conversation, as text, with the history beside it.
+                        onOpenChat = {
+                            handedOff = true
+                            close(false)
+                            launcher.startActivity(
+                                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("lawnchair://settings/dogo-setup"))
+                                    .setPackage(launcher.packageName),
+                            )
+                        },
+                    )
+                }
             },
             LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
         )
     }
 
+    /** Set when the call moves into the chat rather than ending. */
+    private var handedOff = false
+
     override fun handleClose(animate: Boolean) {
-        DogoCall.stop()
+        // Moving into the chat keeps the call; the chat holds it from here.
+        if (!handedOff) DogoCall.stop()
+        app.dogo.launcher.ui.setup.Assistant.release()
         animate().alpha(0f).setDuration(if (animate) 160L else 0L).withEndAction {
             (parent as? ViewGroup)?.removeView(this)
         }.start()
@@ -105,17 +128,30 @@ class DogoCallView private constructor(private val launcher: Launcher) : Abstrac
             view.alpha = 0f
             launcher.dragLayer.addView(view, lp)
             view.animate().alpha(1f).setDuration(220).start()
-            DogoCall.start(launcher)
+            app.dogo.launcher.ui.setup.Assistant.hold()
+            DogoCall.start(launcher, fresh = true)
         }
 
         const val REQUEST_MIC = 0x0D060
     }
 }
 
+/**
+ * The full-screen call: over the home screen, or over the chat when it is
+ * expanded there. [onMinimize] (chat only) shrinks it back to the strip;
+ * [onOpenChat] (home screen only) carries on in the chat.
+ */
 @Composable
-private fun CallScreen(accent: Color, onClose: () -> Unit) {
+internal fun CallScreen(
+    accent: Color,
+    onClose: () -> Unit,
+    onMinimize: (() -> Unit)? = null,
+    onOpenChat: (() -> Unit)? = null,
+) {
     val state by DogoCall.state.collectAsState()
     val level by DogoCall.level.collectAsState()
+    val conversation by app.dogo.launcher.ui.setup.Assistant.state.collectAsState()
+    val cards = state.cards.mapNotNull { id -> conversation.messages.firstNotNullOfOrNull { m -> m.proposals.firstOrNull { it.id == id } } }
     val ink = Color(0xFF0D0B09)
 
     // A failed call shows why for a moment, then closes.
@@ -142,9 +178,22 @@ private fun CallScreen(accent: Color, onClose: () -> Unit) {
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(28.dp))
-            Text(phaseLabel(state), color = Color(0xFFF1EADF), fontSize = 15.sp, fontWeight = FontWeight.Medium)
-            if (state.active) CallTimer(state.startedAt)
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (onMinimize != null) {
+                    IconButton(onClick = onMinimize) { Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Back to the chat", tint = Color(0xFF9C9388)) }
+                } else {
+                    Spacer(Modifier.size(48.dp))
+                }
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(phaseLabel(state), color = Color(0xFFF1EADF), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    if (state.active) CallTimer(state.startedAt)
+                }
+                if (onOpenChat != null) {
+                    IconButton(onClick = onOpenChat) { Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = "Open the chat and past conversations", tint = Color(0xFF9C9388)) }
+                } else {
+                    Spacer(Modifier.size(48.dp))
+                }
+            }
             Spacer(Modifier.weight(0.6f))
 
             val interaction = remember { MutableInteractionSource() }
@@ -181,7 +230,7 @@ private fun CallScreen(accent: Color, onClose: () -> Unit) {
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                state.cards.forEach { card -> ChangeCard(card, accent) }
+                cards.forEach { card -> ChangeCard(card, accent) }
             }
             Spacer(Modifier.weight(0.4f))
 
@@ -233,7 +282,8 @@ private fun CallTimer(startedAt: Long) {
 }
 
 @Composable
-private fun ChangeCard(card: DogoCall.Card, accent: Color) {
+private fun ChangeCard(card: app.dogo.launcher.ui.setup.SetupChatViewModel.Proposal, accent: Color) {
+    val title = app.dogo.launcher.ui.setup.describeAction(card.action)
     AnimatedVisibility(visible = true, enter = fadeIn() + slideInVertically { it / 2 }, exit = fadeOut()) {
         Row(
             Modifier
@@ -243,23 +293,25 @@ private fun ChangeCard(card: DogoCall.Card, accent: Color) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(card.title, color = Color(0xFFF1EADF), fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(title, color = Color(0xFFF1EADF), fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 val (note, color) = when (val s = card.state) {
-                    is DogoCall.CardState.Ready -> s.route to Color(0xFF9C9388)
-                    is DogoCall.CardState.Blocked -> s.hint to OrbPalette.Coral
-                    DogoCall.CardState.Applying -> "Applying…" to Color(0xFF9C9388)
-                    is DogoCall.CardState.Done -> "✓ ${s.message}" to OrbPalette.Jade
-                    is DogoCall.CardState.Failed -> s.message to OrbPalette.Coral
+                    is AS.Ready -> s.route to Color(0xFF9C9388)
+                    is AS.Blocked -> s.hint to OrbPalette.Coral
+                    AS.Disallowed -> "Switched off in Dogo Options." to OrbPalette.Coral
+                    AS.Applying -> "Applying…" to Color(0xFF9C9388)
+                    is AS.Applied -> "✓ ${s.message}" to OrbPalette.Jade
+                    is AS.Failed -> s.message to OrbPalette.Coral
+                    AS.Dismissed -> "Dismissed" to Color(0xFF9C9388)
                 }
                 Text(note, color = color, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             when (card.state) {
-                is DogoCall.CardState.Ready -> {
+                is AS.Ready -> {
                     TextButton(onClick = { DogoCall.dismissCard(card.id) }) { Text("No", color = Color(0xFF9C9388)) }
                     TextButton(onClick = { DogoCall.approve(card.id) }) { Text("Apply", color = accent, fontWeight = FontWeight.SemiBold) }
                 }
 
-                is DogoCall.CardState.Blocked, is DogoCall.CardState.Failed ->
+                is AS.Blocked, is AS.Failed, AS.Disallowed ->
                     TextButton(onClick = { DogoCall.dismissCard(card.id) }) { Text("OK", color = Color(0xFF9C9388)) }
 
                 else -> Unit

@@ -8,17 +8,17 @@ package app.dogo.launcher.voice
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.Process
-import app.dogo.launcher.agent.Action
 import app.dogo.launcher.agent.backend.AgentCatalog
+import app.dogo.launcher.agent.backend.ChatTurn
 import app.dogo.launcher.agent.backend.resolve
-import app.dogo.launcher.privilege.ActionApplier
 import app.dogo.launcher.privilege.ActionRequirements
-import app.dogo.launcher.privilege.PrivilegePlanner
 import app.dogo.launcher.privilege.SystemAccess
 import app.dogo.launcher.ui.options.OptionsStore
+import app.dogo.launcher.ui.setup.Assistant
 import app.dogo.launcher.ui.setup.PhoneFacts
 import app.dogo.launcher.ui.setup.SetupChatAgent
-import app.dogo.launcher.ui.setup.describeAction
+import app.dogo.launcher.ui.setup.SetupChatViewModel.ActionState
+import app.dogo.launcher.ui.setup.SetupChatViewModel.Message
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -45,16 +45,6 @@ object DogoCall {
 
     enum class Phase { IDLE, CONNECTING, LISTENING, THINKING, SPEAKING, MUTED, ERROR }
 
-    data class Card(val id: Long, val action: Action, val title: String, val state: CardState)
-
-    sealed interface CardState {
-        data class Ready(val route: String) : CardState
-        data class Blocked(val hint: String) : CardState
-        data object Applying : CardState
-        data class Done(val message: String) : CardState
-        data class Failed(val message: String) : CardState
-    }
-
     data class State(
         val phase: Phase = Phase.IDLE,
         val caption: String = "",
@@ -62,7 +52,8 @@ object DogoCall {
         /** What Hermes is working on, while [Phase.THINKING]. */
         val working: String = "",
         val workingSince: Long = 0L,
-        val cards: List<Card> = emptyList(),
+        /** Changes proposed during this call, by proposal id in [Assistant]. */
+        val cards: List<Long> = emptyList(),
         val error: String = "",
         val startedAt: Long = 0L,
     ) {
@@ -75,31 +66,31 @@ object DogoCall {
     /** 0..1, updated about 20 times a second during a call. */
     val level = MutableStateFlow(0f)
 
-    /** Finished lines, for whoever wants a transcript (the chat). */
-    val lines = MutableStateFlow<List<Pair<Boolean, String>>>(emptyList())
-
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var session: VoiceSession? = null
     private var handoff: HermesHandoff? = null
     private var meter: Job? = null
-    private var nextCard = 0L
     private var muted = false
 
     /** The last caption was a finished line; the next words start a new one. */
     private var captionDone = true
     private lateinit var app: Context
 
-    /** Instructions extra to the setup prompt, e.g. the chat's typed history. */
-    fun start(context: Context, extraInstructions: String = "") {
+    /**
+     * Starts talking in the open conversation. [fresh] (the light on the home
+     * screen) starts a new one first if the open one has gone quiet.
+     */
+    fun start(context: Context, fresh: Boolean = false) {
         if (_state.value.active) return
         app = context.applicationContext
+        Assistant.init(app)
+        if (fresh) Assistant.freshIfIdle()
         val config = VoiceStore(app).load()
         config.problem()?.let {
             _state.value = State(phase = Phase.ERROR, error = "Voice isn't set up yet. $it")
             return
         }
         muted = false
-        lines.value = emptyList()
         _state.value = State(phase = Phase.CONNECTING, startedAt = System.currentTimeMillis())
         scope.launch {
             val tokenJob = async { VoiceTokens.fetch(config) }
@@ -110,7 +101,7 @@ object DogoCall {
             }
             if (_state.value.phase != Phase.CONNECTING) return@launch // cancelled while connecting
             handoff = hermes(app)
-            val instructions = SetupChatAgent.systemPromptFor(phone) + extraInstructions
+            val instructions = SetupChatAgent.systemPromptFor(phone) + historyNote()
             val injected = if (com.android.launcher3.BuildConfig.DEBUG) java.io.File(app.filesDir, "voice_test.pcm") else null
             session = VoiceSession(
                 token,
@@ -124,13 +115,25 @@ object DogoCall {
         }
     }
 
+    /** The conversation so far, typed or spoken, so a call picks up where it left off. */
+    private fun historyNote(): String {
+        val turns = Assistant.turns()
+        if (turns.isEmpty()) return ""
+        val lines = turns.takeLast(24).map { (if (it.role == ChatTurn.Role.USER) "User: " else "Assistant: ") + it.text.take(600) }
+        var text = lines.joinToString("\n")
+        if (text.length > 8_000) text = text.takeLast(8_000)
+        return "\n\nThis continues an earlier conversation (typed or spoken). Carry on from it; don't repeat changes already applied.\n$text"
+    }
+
     fun stop() {
+        val wasActive = _state.value.phase != Phase.IDLE
         session?.stop()
         session = null
         handoff = null
         meter?.cancel()
         level.value = 0f
-        _state.update { State(cards = it.cards.filter { c -> c.state is CardState.Ready || c.state is CardState.Applying }) }
+        _state.value = State()
+        if (wasActive) Assistant.flush()
     }
 
     fun toggle(context: Context) = if (_state.value.active) stop() else start(context)
@@ -146,27 +149,27 @@ object DogoCall {
         session?.send(RealtimeProtocol.cancelResponse())
     }
 
-    fun dismissCard(id: Long) = _state.update { s -> s.copy(cards = s.cards.filterNot { it.id == id }) }
+    /** Tells the voice something happened, e.g. a change was applied from the chat. */
+    fun tell(text: String) {
+        session?.send(RealtimeProtocol.note(text))
+    }
+
+    fun dismissCard(id: Long) {
+        Assistant.dismiss(id)
+        _state.update { s -> s.copy(cards = s.cards - id) }
+    }
 
     fun clearError() = _state.update { if (it.phase == Phase.ERROR) State() else it }
 
     fun approve(id: Long) {
-        val card = _state.value.cards.firstOrNull { it.id == id } ?: return
-        if (card.state !is CardState.Ready) return
-        setCard(id, CardState.Applying)
-        scope.launch {
-            val outcome = ActionApplier(app, SystemAccess(app)).apply(card.action)
-            setCard(id, if (outcome.ok) CardState.Done(outcome.message) else CardState.Failed(outcome.message))
-            session?.send(RealtimeProtocol.note(if (outcome.ok) "The user applied a change: ${outcome.message}" else "A change failed: ${outcome.message}"))
+        Assistant.approve(id) { outcome ->
             if (outcome.ok) {
-                delay(2_500)
-                dismissCard(id)
+                scope.launch {
+                    delay(2_500)
+                    _state.update { s -> s.copy(cards = s.cards - id) }
+                }
             }
         }
-    }
-
-    private fun setCard(id: Long, state: CardState) = _state.update { s ->
-        s.copy(cards = s.cards.map { if (it.id == id) it.copy(state = state) else it })
     }
 
     private fun fail(message: String) {
@@ -175,6 +178,7 @@ object DogoCall {
         meter?.cancel()
         level.value = 0f
         _state.update { it.copy(phase = Phase.ERROR, error = message) }
+        Assistant.flush()
     }
 
     private suspend fun onEvent(event: RealtimeProtocol.Event) {
@@ -189,7 +193,7 @@ object DogoCall {
             }
 
             is RealtimeProtocol.Event.UserSaid -> {
-                lines.update { (it + (true to event.text)).takeLast(40) }
+                Assistant.add(Message(event.text, fromUser = true, spoken = true))
                 _state.update { it.copy(heard = event.text) }
             }
 
@@ -200,38 +204,27 @@ object DogoCall {
             }
 
             is RealtimeProtocol.Event.AssistantSaid -> {
-                lines.update { (it + (false to event.text)).takeLast(40) }
+                Assistant.add(Message(event.text, fromUser = false, spoken = true))
                 captionDone = true
                 _state.update { it.copy(caption = event.text) }
             }
 
             is RealtimeProtocol.Event.ProposeChanges -> {
-                val access = SystemAccess(app)
-                val availability = access.availability()
-                val options = OptionsStore(app).load()
-                val cards = event.actions.map { action ->
-                    val state: CardState = when {
-                        !options.isAllowed(action) -> CardState.Blocked("Switched off in Dogo Options.")
-
-                        else -> when (val plan = PrivilegePlanner.plan(action, availability, app.packageName)) {
-                            is PrivilegePlanner.Plan.Blocked -> CardState.Blocked(plan.hint)
-                            PrivilegePlanner.Plan.InLauncher -> CardState.Ready("Launcher only")
-                            is PrivilegePlanner.Plan.WithPermission -> CardState.Ready("Granted permission")
-                            is PrivilegePlanner.Plan.ViaShell -> CardState.Ready(plan.tier.title)
-                            is PrivilegePlanner.Plan.ViaPlugin -> CardState.Ready("Plugin")
-                        }
-                    }
-                    Card(nextCard++, action, describeAction(action), state)
+                val proposals = Assistant.proposalsFor(event.actions)
+                if (proposals.isNotEmpty()) {
+                    Assistant.add(Message(if (proposals.size == 1) "Proposed change:" else "Proposed changes:", fromUser = false, proposals = proposals, spoken = true))
+                    _state.update { it.copy(cards = (it.cards + proposals.map { p -> p.id }).takeLast(4)) }
                 }
-                _state.update { it.copy(cards = (it.cards + cards).takeLast(4)) }
-                RealtimeProtocol.toolResult(event.callId, RealtimeProtocol.proposalResult(cards.size, event.rejected)).forEach { session?.send(it) }
-                if (!options.requireConfirmation) cards.filter { it.state is CardState.Ready }.forEach { approve(it.id) }
+                RealtimeProtocol.toolResult(event.callId, RealtimeProtocol.proposalResult(proposals.size, event.rejected)).forEach { session?.send(it) }
+                if (!OptionsStore(app).load().requireConfirmation) proposals.filter { it.state is ActionState.Ready }.forEach { approve(it.id) }
             }
 
             is RealtimeProtocol.Event.UseTools -> {
                 val bridge = handoff
+                Assistant.add(Message("Asked Hermes to look into it", fromUser = false, note = true))
                 _state.update { it.copy(phase = Phase.THINKING, working = event.request, workingSince = System.currentTimeMillis()) }
                 val answer = bridge?.ask(event.request) ?: "Hermes isn't set up on this phone, so I can't use those tools."
+                bridge?.sessionId?.let { Assistant.rememberHermesSession(it) }
                 _state.update { it.copy(phase = if (muted) Phase.MUTED else Phase.LISTENING, working = "") }
                 RealtimeProtocol.toolResult(event.callId, answer.take(6_000)).forEach { session?.send(it) }
             }
@@ -273,7 +266,7 @@ object DogoCall {
         val agent = OptionsStore(context).load().agentConfigs[AgentCatalog.HERMES.id] ?: return null
         val resolved = AgentCatalog.HERMES.resolve(agent)
         if (resolved.problems().isNotEmpty() || resolved.apiKey.isNullOrBlank()) return null
-        return HermesHandoff(resolved.baseUrl, resolved.apiKey!!)
+        return HermesHandoff(resolved.baseUrl, resolved.apiKey!!, initialSession = Assistant.hermesSession())
     }
 
     private suspend fun phoneContext(context: Context): SetupChatAgent.PhoneContext {

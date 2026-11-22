@@ -30,8 +30,10 @@ class HermesHandoff(
     private val client: OkHttpClient = defaultClient,
     private val pollMs: Long = 1_000,
     private val timeoutMs: Long = 240_000,
+    /** Hermes's session from an earlier call in the same conversation, if any. */
+    initialSession: String? = null,
 ) {
-    var sessionId: String? = null
+    var sessionId: String? = initialSession
         private set
 
     /** Always returns something the voice can say; failures become plain sentences. */
