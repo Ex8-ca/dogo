@@ -13,6 +13,34 @@ abilities should grow without Dogo shipping a new release each time.
 3. Web search.
 4. Skills, like the Hermes marketplace, that shape how the phone's AI behaves.
 
+## Interruption recovery and next checkpoint
+
+Recovered from the actual worktree, not the interrupted assistant messages:
+
+- Saved conversations are committed (`0246b4a92d`) and model titles/rename
+  are committed (`1252a6aae2`); the last completed local build had 211 passing
+  tests. Do not call every Phase 0 device check complete: search/delete,
+  home-call-to-chat handoff and late-title rename races still need coverage.
+- The alert subagent was rate-limited. It left only AlertCandidate.kt and
+  AlertRules.kt, untracked and untested. There is no working alert engine yet.
+- Chat wallpaper/glass styling was inspected but never implemented. Recover
+  it as a parallel task: use the existing system/theme palette, show actual
+  wallpaper behind a legible translucent scrim, and restore normal settings
+  backgrounds on exit. Hardware blur is optional, not a requirement.
+- Phase 1 still owes tappable source links and truthful progress (do not label
+  all waiting time “searching” when no tool event confirms a search).
+- Q1 and Q2 are resolved below. They do not block phone notifications. Server
+  deployment, marketplace installs, root prompts and private message sends
+  remain separate actions, not implicit permission to execute them now.
+
+The next working checkpoint is a default-off phone notification assistant:
+selected-agent analysis, explicit app selection, Dogo-native notifications,
+a running inbox and user-selected discussion context in chat, with confirmed
+reply only when the originating app supplies a live reply action. No ntfy
+server deployment is necessary for this checkpoint. Run formatting, unit tests
+and APK build, then exercise it on the Pixel with controlled test notifications
+before enabling capture of the user's actual app notifications.
+
 ## Where things stand
 
 Built and pushed: voice call (light in the Dogo Ring), chat with photo copy,
@@ -116,11 +144,47 @@ Design check against the real code (2026-11-22). Findings that change the work:
   action, if ever added, is an agent action and goes through that test.
 - Privacy: never store notification text; the rolling log holds time, app,
   sender key, score and reason only. Keep it out of conversations and out of
-  Android backup. Scoring is hard-wired to the on-device model; any remote
-  scorer is per-app opt-in, checked inside the scorer so a test can assert it.
+  Android backup. Analysis uses the user's selected agent (Hermes, a selected
+  remote LLM, or the on-device model). Onboarding must explain that notifications
+  from enabled apps are sent to that agent and, where applicable, its model
+  provider. Do not silently switch providers if the selected one fails.
+
+### Notification conversations (additional requested scope)
+
+The assistant should support a running notification inbox alongside saved
+conversations, not just one-off alerts. This is planned, not implemented.
+
+- Capture notifications only after the user grants Android Notification Access
+  and selects the apps Dogo may watch. No root or Shizuku is required.
+- Show source app, sender/conversation, time, preview and available actions.
+  Keep notification threads separate from ordinary chats; attach a specific
+  notification to the active conversation when the user chooses “Discuss”.
+- Support questions about the notification and follow-ups within that thread.
+  Notification access does not expose an app's full chat history, inbox,
+  attachments or arbitrary internal data. Explain when more context is needed.
+- “Draft reply” prepares text. “Send” requires explicit confirmation and uses
+  only a live direct-reply action supplied by the originating app (RemoteInput).
+  If none exists or it expires, open the original notification/app instead;
+  never claim a reply was sent just because a draft was created. Treat delivery
+  as handed to the app, not proven received by the recipient.
+- Incoming message bodies are untrusted data, not agent instructions. They
+  must not be able to trigger tools, send replies, install skills or change
+  the user's notification rules by themselves.
+- Notifications can be truncated, hidden or sensitive-content-redacted, and
+  work-profile policies may block them. “Any app” means any allowed app whose
+  notifications Android actually exposes, not unrestricted app integration.
+- A persistent inbox changes the original no-body-storage rule above. Keep
+  transient classification body-free on disk; saving previews/history requires
+  a separate visible opt-in, retention limit, per-app exclusions, clear/delete
+  controls and backup exclusions. A user-selected “Discuss” attachment is an
+  explicit saved copy. Explain if it will be sent to Hermes or a model provider.
+  Never silently copy every notification into every chat.
 
 Build order: pure engine and tests (`alerts/`, no Android imports) first, then
-the listener hook and notifier, then settings, then ntfy.
+the listener hook and notifier, then settings and notification inbox/discussion,
+then direct reply with confirmation, then ntfy. The first implementation must
+verify capture, updates, dismissal, expired actions and reply hand-off on the
+actual phone with the apps the user chooses.
 
 Goal: Dogo tells you about the things you would want to know, and stays quiet
 otherwise. Quiet matters more than clever; one wrong alert a day and the user
@@ -141,8 +205,10 @@ How a candidate becomes an alert, cheapest check first:
 
 1. Rules the user can see and edit: people who always count (VIPs), words that
    count (invoice, deadline, delivery), apps to ignore.
-2. Only for what rules leave undecided, a model scores it 0 to 3: ignore,
-   digest, notify, interrupt. On-device model by default.
+2. Only for what rules leave undecided, the user's selected agent scores it
+   0 to 3: ignore, digest, notify, interrupt. This may be Hermes, the selected
+   remote LLM, or an on-device model. Unavailability must not lose the incoming
+   notification or cause an undisclosed provider fallback.
 3. Output matches the score. Ignore: nothing. Digest: collected into one
    summary at set times. Notify: a Dogo notification, plus a count on the ring
    light. Interrupt: heads-up, and offers to read it aloud.
@@ -150,10 +216,22 @@ How a candidate becomes an alert, cheapest check first:
    "never alert for this sender", "this was useful / not useful". The last two
    feed the rules, so it learns what matters.
 
-Privacy decisions (need your call, see below):
+Decisions confirmed by the user:
 
-- Notification text is personal. Default: it is scored on the phone and never
-  leaves it. Sending it to Hermes is an explicit per-app opt-in.
+- Notification analysis should use Hermes or whichever LLM the user selected.
+  Once notification integration is enabled for an app, its notification context
+  may be sent to that selected agent. Show the destination and data-sharing
+  disclosure during setup, and keep app exclusions available.
+- Dogo Launcher is the alert interface: ordinary Android notifications, an
+  in-launcher inbox, and a ring indicator. No Telegram or separate ntfy app
+  is required. Respect Android notification permission, channel settings, Do
+  Not Disturb and lock-screen privacy. Speaking private content aloud is an
+  explicit user action, not an automatic consequence of a high score.
+- For server-originated events, a transport is still required. Proposed first
+  transport: an authenticated private ntfy subscription built into Dogo, with
+  reconnect/resume and a visible connection state. ntfy is delivery plumbing,
+  not the user interface. Deploying it remains a separate infrastructure step.
+  Phone-originated notifications can be analysed and shown without ntfy.
 - Dogo reads and stores nothing it does not alert on, beyond a short rolling
   log the user can clear.
 - Nothing is sent or replied to without a card the user approves, the same
@@ -274,12 +352,15 @@ Dogo Options, like every other action.
   everything bigger".
 - System-wide accent colour, font and icon shape through overlays
   (`cmd overlay`), so the change reaches Settings and other apps, not only Dogo.
-- Switch on Dogo's notification access without a trip through Settings.
-  Phase 2 depends on this, so it comes first.
+- Optionally switch on Dogo's notification access using a supported shell
+  command. Phase 2 does not require it: Android's normal user-granted access
+  in Settings is sufficient and is the default route.
 - Freeform or tiled windows, from the earlier Omarchy question.
 
-Out of reach even with root: the status bar, navigation bar and boot
-animation. Those wait for the system-app build.
+SystemUI/status-bar replacement and boot-animation changes are not launcher
+features. Root can enable some device-specific modifications; a privileged
+system app alone does not automatically grant arbitrary SystemUI control.
+Prefer the planned ROM integration for supported, reproducible changes.
 
 ### 5b. Tenkai roadmap items, mapped
 
@@ -308,7 +389,7 @@ from a card, and each Tenkai row above is either built, scheduled, or marked
 | Phase | What | Size |
 |---|---|---|
 | 0 | Verify and commit conversations; better titles | 1 day |
-| 1 | Typed chat uses Hermes; web search; sources | 2 to 3 days |
+| 1 | Tappable sources and honest tool-progress UI; Hermes search already works | Remaining scope, not scheduled |
 | 2 | Alerts: listener, rules, scoring, ntfy, digest | 1 to 1.5 weeks |
 | 3 | Skills format, loader, Options screen, 3 starters | 1 week |
 | 4 | Marketplace spike, browse, install gate | 3 to 5 days |
@@ -320,10 +401,11 @@ the user will feel most, so it should not wait behind skills.
 
 ## Decisions needed
 
-1. Notification text: on-device scoring only (recommended), or allow sending
-   it to Hermes for apps the user picks?
-2. Push from the server: ntfy (open, Google-free, self-hostable on the .3
-   server) or reuse the Telegram bot already on Hermes?
+1. Resolved: analyse notifications with Hermes or the LLM the user selected,
+   with clear setup disclosure and app-level controls.
+2. Resolved: alerts appear through Dogo Launcher itself, not Telegram.
+   Server-to-phone transport remains necessary; embedded authenticated ntfy is
+   the proposed first implementation, with no separate client app required.
 3. Web search for the on-device model: SearXNG on the .3 server, or a search
    API key? Or skip it and let Hermes do all searching?
 4. Phone skills: same `SKILL.md` format as Hermes (recommended, one skill in
@@ -337,7 +419,8 @@ for Dogo. Each is a bigger trust step and should be its own decision.
 
 ## Known unverified
 
-- Whether the Hermes marketplace has a public catalog endpoint.
+- Marketplace catalog endpoints were found; schema stability and efficient
+  phone-side subset/cache handling still need implementation.
 - How much a notification listener sees from the user's mail and chat apps
   (some hide content on the lock screen or in work profiles); Phase 2 starts
   by logging what arrives from the apps actually in use.
