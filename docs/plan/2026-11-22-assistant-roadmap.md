@@ -1,0 +1,217 @@
+# Dogo assistant: conversations, alerts, search and skills
+
+Status: plan. Written 2026-11-22, after the voice call, ring styles, widgets and
+photo-copy work shipped (`4c3ba61c57` to `0bee9554e4`).
+
+Four things were asked for. They share one idea: Dogo is the phone-side
+front end of an agent (Hermes, or the on-device model), and the agent's
+abilities should grow without Dogo shipping a new release each time.
+
+1. Chat and voice in one place, with saved, named, reusable conversations
+   (like Hermes Relay).
+2. Watch incoming email and chats, and alert the user to what matters.
+3. Web search.
+4. Skills, like the Hermes marketplace, that shape how the phone's AI behaves.
+
+## Where things stand
+
+Built and pushed: voice call (light in the Dogo Ring), chat with photo copy,
+widgets/dock/layout actions, Fire and Electric ring styles.
+
+Built, tests pass (208/208), **not yet tried on the phone and not committed**:
+saved conversations. Files: `ui/setup/Assistant.kt` (one conversation shared by
+chat and voice), `ui/setup/Conversations.kt` (JSON on disk, titles, search,
+date labels), a rewritten `DogoSetupScreen.kt` (history drawer, voice strip in
+the composer, full-screen call, keyboard padding), `DogoCall.kt` reworked to
+write into the shared conversation, `ConversationsTest.kt`.
+
+Facts that shape the plan (checked, not assumed):
+
+- Dogo already declares a notification listener
+  (`com.android.launcher3.notification.NotificationListener`, used for
+  badges). Email and chat apps show up there without Dogo holding any login.
+- Hermes does the web already. A voice turn that needs real work goes to
+  Hermes `/v1/runs` and Hermes uses its own web, file and memory tools. The
+  typed chat does not do this yet; it only asks the model for actions.
+- Hermes has a messaging gateway (Telegram, Email, Signal, ntfy, and others),
+  cron jobs that deliver results to a chat, and webhooks that start a run when
+  an event arrives. ntfy is a plain HTTP push service, so a phone with no
+  Google services can subscribe to it directly. Telegram on this server is
+  already configured.
+- The marketplace (hermes-agent.nousresearch.com/marketplace) lists 2,578
+  plugins, tabs for Plugins, Skills and Connectors, and one page per item
+  (`/marketplace/<name>`) with an install command (`hermes plugins install
+  <name>`) and a `hermes://plugin/install?catalog=<name>` link. Many entries
+  carry a long "Disclosure" saying what they run and send. I did not find a
+  public JSON catalog; that is a spike (see Phase 4).
+- Hermes skills are folders with a `SKILL.md`, loaded on demand: the agent sees
+  a name and one-line description for each, and reads the body only when it
+  fits the task.
+
+## Phase 0: finish conversations (small, do first)
+
+Goal: the history work is real before anything is built on it.
+
+- Install on the phone and walk through: type a chat, talk a call from the
+  ring light, open the chat from the call, come back later, open an old
+  conversation, search, delete, restart Dogo and check it all persists.
+- Check the Hermes session carries over: resume a conversation, ask about
+  something said earlier in it by voice.
+- Check what the earlier build got wrong on the phone: the Send button behind
+  the keyboard (now `imePadding`), and accent changes wiping the chat.
+- Better names. Today the title is the first message cut at a word. After the
+  first reply, ask the model for a 3 to 5 word title and store it (keep the
+  cut-off title as the fallback and let the user rename by long-pressing).
+- Then commit as its own change.
+
+Done when: every step above works on the Pixel, and the commit passes CI.
+
+## Phase 1: one agent for chat and voice, with web search
+
+Goal: typing and talking get the same abilities.
+
+- Send typed turns that need real work through the same Hermes hand-off the
+  voice uses. Rule: the model decides per turn, either "propose phone changes"
+  (cards, as now) or "ask Hermes" (a short working state, then the answer).
+  Show Hermes tool use as a small status line, like Relay does.
+- Web search for agents that are not Hermes. Pick one in Phase 1 planning:
+  a self-hosted SearXNG on the .3 server (no key, private), or a search API
+  key kept in the Keystore like the OpenAI key. Default: Hermes does it; the
+  direct tool is only for the on-device model when Hermes is unreachable.
+- Cite sources: results show as small link chips under the answer.
+
+Done when: "what's the weather in Austin" and "find the cheapest USB-C hub"
+work by typing and by voice, and the answer says where it came from.
+
+## Phase 2: proactive alerts
+
+Goal: Dogo tells you about the things you would want to know, and stays quiet
+otherwise. Quiet matters more than clever; one wrong alert a day and the user
+turns it off.
+
+Two sources, because they cover different things.
+
+A. On the phone: the notification listener Dogo already has. It sees mail and
+   chat app notifications (Gmail-free mail clients, Signal, Matrix, SMS) with
+   no logins. Each incoming notification is a candidate.
+
+B. On the Hermes server: the gateway's Email and Telegram platforms, and cron
+   jobs ("every 15 minutes, check my inbox for anything urgent"). Results are
+   pushed to the phone over ntfy, which Dogo subscribes to directly (HTTP
+   stream, no Google). This reaches mail that has no app on the phone.
+
+How a candidate becomes an alert, cheapest check first:
+
+1. Rules the user can see and edit: people who always count (VIPs), words that
+   count (invoice, deadline, delivery), apps to ignore.
+2. Only for what rules leave undecided, a model scores it 0 to 3: ignore,
+   digest, notify, interrupt. On-device model by default.
+3. Output matches the score. Ignore: nothing. Digest: collected into one
+   summary at set times. Notify: a Dogo notification, plus a count on the ring
+   light. Interrupt: heads-up, and offers to read it aloud.
+4. Each alert has actions: draft a reply (shown as a card to approve), snooze,
+   "never alert for this sender", "this was useful / not useful". The last two
+   feed the rules, so it learns what matters.
+
+Privacy decisions (need your call, see below):
+
+- Notification text is personal. Default: it is scored on the phone and never
+  leaves it. Sending it to Hermes is an explicit per-app opt-in.
+- Dogo reads and stores nothing it does not alert on, beyond a short rolling
+  log the user can clear.
+- Nothing is sent or replied to without a card the user approves, the same
+  rule as phone changes today.
+
+Done when: with a week of real use, the user can see why each alert fired, and
+turning off one sender or app takes two taps.
+
+## Phase 3: skills that shape the assistant
+
+Goal: install a skill and the assistant behaves differently, on the phone and
+on Hermes.
+
+Two layers, because the phone's model and Hermes are different agents.
+
+Hermes side (free, already works): skills installed on the Hermes host shape
+every Hermes-backed turn. Dogo's job is only to show and manage them: list
+installed skills, install by name, remove. These run as `hermes skills ...`
+on the server; the phone asks Hermes to do it and shows an approval first.
+
+Phone side (new): a skill folder on the phone, same `SKILL.md` format, so one
+skill works in both places. Rules:
+
+- The system prompt carries only each skill's name and description. The body
+  is loaded when the model asks for it (same progressive loading Hermes uses),
+  so ten skills do not cost ten prompts.
+- Skills can add instructions and name phone actions they may use. They cannot
+  add new powers on their own: anything that changes the phone still goes
+  through the existing action switches and approval cards.
+- A "Skills" screen in Dogo Options: installed, on/off per skill, and which
+  agent each one applies to.
+- Ship three starter skills of our own to prove the loop (for example a
+  morning briefing, a "tidy my home screen" routine, an email-triage helper
+  that Phase 2 uses).
+
+Done when: dropping a new `SKILL.md` in changes the answer to a matching
+request, on both Gemma and Hermes, with no app update.
+
+## Phase 4: marketplace
+
+Goal: browse and install from the Hermes marketplace inside Dogo.
+
+- Spike first (half a day): find where the marketplace gets its list (an index
+  on GitHub, or an endpoint the page calls). If there is no stable public
+  source, do not scrape the site from the phone. Fallback: Dogo asks Hermes to
+  search and install ("hermes skills search/install"), and shows the result.
+- Show the item's own disclosure text before install. Many entries run code
+  or send data off the machine; the user should read that, not a summary.
+- Install gate: always an approval card, never silent, and only skills or
+  plugins; Connectors and model providers stay out of the first version.
+- Phone-only skills are plain text files, so installing one cannot run code.
+  Anything that ships code installs on the Hermes host, not on the phone.
+- Keep a short "recommended for Dogo" list we vouch for: Telegram Business
+  (drafts replies, you approve) fits Phase 2 well; phone-harness is the
+  opposite way round (Hermes driving a phone over adb) and is not a goal here.
+
+Done when: from the phone, find a skill, read what it does and what it
+touches, approve, and it is used on the next turn.
+
+## Order and size
+
+| Phase | What | Size |
+|---|---|---|
+| 0 | Verify and commit conversations; better titles | 1 day |
+| 1 | Typed chat uses Hermes; web search; sources | 2 to 3 days |
+| 2 | Alerts: listener, rules, scoring, ntfy, digest | 1 to 1.5 weeks |
+| 3 | Skills format, loader, Options screen, 3 starters | 1 week |
+| 4 | Marketplace spike, browse, install gate | 3 to 5 days |
+
+Each phase ships on its own and is tagged, as before. Phase 2 depends on
+nothing but Phase 0; Phase 3 should land before Phase 4. Phase 2 is the one
+the user will feel most, so it should not wait behind skills.
+
+## Decisions needed
+
+1. Notification text: on-device scoring only (recommended), or allow sending
+   it to Hermes for apps the user picks?
+2. Push from the server: ntfy (open, Google-free, self-hostable on the .3
+   server) or reuse the Telegram bot already on Hermes?
+3. Web search for the on-device model: SearXNG on the .3 server, or a search
+   API key? Or skip it and let Hermes do all searching?
+4. Phone skills: same `SKILL.md` format as Hermes (recommended, one skill in
+   both places), or a Dogo-only format?
+
+## Not in this plan
+
+Reading mail directly over IMAP from the phone, replying without approval,
+installing marketplace plugins onto the phone itself, and any cloud account
+for Dogo. Each is a bigger trust step and should be its own decision.
+
+## Known unverified
+
+- Whether the Hermes marketplace has a public catalog endpoint.
+- How much a notification listener sees from the user's mail and chat apps
+  (some hide content on the lock screen or in work profiles); Phase 2 starts
+  by logging what arrives from the apps actually in use.
+- Fire and Electric ring styles were tuned from screenshots only and have not
+  had a final look on the phone.
