@@ -52,6 +52,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.dogo.launcher.agent.AgentOptions
@@ -61,6 +62,8 @@ import app.dogo.launcher.agent.backend.AgentPreset
 import app.dogo.launcher.agent.backend.KeyRequirement
 import app.dogo.launcher.agent.backend.ResolvedAgent
 import app.dogo.launcher.llm.ModelCatalog
+import app.dogo.launcher.privilege.Tier
+import app.dogo.launcher.privilege.TierStatus
 
 /**
  * Lets the user choose which agent Dogo talks to, which on-device model it
@@ -73,6 +76,11 @@ fun DogoOptionsScreen(
     viewModel: DogoOptionsViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LifecycleResumeEffect(viewModel) {
+        viewModel.refreshAccess()
+        onPauseOrDispose { }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -159,6 +167,17 @@ fun DogoOptionsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            SectionLabel("System access")
+            Text(
+                "Some changes reach beyond the launcher. Dogo uses the least access " +
+                    "that works, and only for changes you approve.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            state.access.filter { it.tier != Tier.NONE }.forEach { status ->
+                AccessRow(status, onRequest = { viewModel.requestAccess(status.tier) })
+            }
 
             SectionLabel("What Dogo may change")
             Text(
@@ -461,3 +480,28 @@ private fun RemoteAgentCard(
 }
 
 private const val MAX_MODEL_CHOICES = 25
+
+@Composable
+private fun AccessRow(status: TierStatus, onRequest: () -> Unit) {
+    val requestable = !status.available && (status.tier == Tier.SHIZUKU || status.tier == Tier.ROOT)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (requestable) Modifier.clickable(onClick = onRequest) else Modifier)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(status.tier.title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                status.detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        when {
+            status.available -> Icon(Icons.Default.Check, "Available", tint = MaterialTheme.colorScheme.primary)
+            requestable -> TextButton(onClick = onRequest) { Text("Allow") }
+        }
+    }
+}

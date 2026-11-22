@@ -32,6 +32,7 @@ class SetupChatAgentTest {
             "hide_app",
             "create_folder",
             "set_theme",
+            "set_system_dark_mode",
             "set_animation_scale",
         )
 
@@ -88,6 +89,54 @@ class SetupChatAgentTest {
         assertThat(prompt).contains("(unavailable)")
     }
 
+    @Test
+    fun `phone section lists installed apps sorted with their packages`() {
+        val section = SetupChatAgent.phoneSection(
+            SetupChatAgent.PhoneContext(
+                apps = listOf(
+                    SetupChatAgent.InstalledApp("Termux", "com.termux"),
+                    SetupChatAgent.InstalledApp("Calculator", "com.android.calculator2"),
+                ),
+            ),
+        )
+        assertThat(section).contains("- Calculator = com.android.calculator2")
+        assertThat(section.indexOf("Calculator")).isLessThan(section.indexOf("Termux"))
+    }
+
+    @Test
+    fun `the prompt tells the agent not to guess package names`() {
+        assertThat(SetupChatAgent.systemPrompt).contains("Only use package names from the installed apps list")
+        assertThat(SetupChatAgent.systemPrompt).contains("set_theme changes only the Dogo launcher")
+    }
+
+    @Test
+    fun `unavailable system changes are flagged so the agent doesn't promise them`() {
+        val off = SetupChatAgent.phoneSection(SetupChatAgent.PhoneContext())
+        assertThat(off).contains("dark mode is NOT available")
+        assertThat(off).contains("animation speed is NOT available")
+        val on = SetupChatAgent.phoneSection(
+            SetupChatAgent.PhoneContext(systemDarkModeAvailable = true, animationScaleAvailable = true),
+        )
+        assertThat(on).doesNotContain("NOT available")
+    }
+
+    @Test
+    fun `long app lists are capped`() {
+        val apps = (1..(SetupChatAgent.MAX_APPS + 7)).map { SetupChatAgent.InstalledApp("App $it", "p.$it") }
+        val section = SetupChatAgent.phoneSection(SetupChatAgent.PhoneContext(apps = apps))
+        assertThat(section).contains("(and 7 more not listed)")
+    }
+
+    @Test
+    fun `on-device prompt includes the phone section when given`() {
+        val prompt = SetupChatAgent.buildPrompt(
+            "hi",
+            emptyList(),
+            phone = SetupChatAgent.PhoneContext(apps = listOf(SetupChatAgent.InstalledApp("Files", "com.android.documentsui"))),
+        )
+        assertThat(prompt).contains("com.android.documentsui")
+    }
+
     private fun paramsFor(action: String) = when (action) {
         "set_wallpaper" -> """{"color":"#000000"}"""
         "add_to_home" -> """{"package":"com.example"}"""
@@ -95,6 +144,7 @@ class SetupChatAgentTest {
         "create_folder" -> """{"name":"Work","apps":[]}"""
         "set_theme" -> """{"theme":"dark"}"""
         "set_animation_scale" -> """{"scale":0.5}"""
+        "set_system_dark_mode" -> """{"enabled":true}"""
         else -> "{}"
     }
 }

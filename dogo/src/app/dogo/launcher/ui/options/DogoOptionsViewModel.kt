@@ -18,6 +18,9 @@ import app.dogo.launcher.agent.backend.ModelLister
 import app.dogo.launcher.llm.HardwareProfile
 import app.dogo.launcher.llm.ModelCatalog
 import app.dogo.launcher.llm.ModelDownloader
+import app.dogo.launcher.privilege.SystemAccess
+import app.dogo.launcher.privilege.Tier
+import app.dogo.launcher.privilege.TierStatus
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,6 +59,7 @@ class DogoOptionsViewModel(
     data class UiState(
         val options: AgentOptions = AgentOptions(),
         val connection: ConnectionCheck = ConnectionCheck.Idle,
+        val access: List<TierStatus> = emptyList(),
         val recommendation: HardwareProfile.Recommendation? = null,
         val models: List<ModelRow> = emptyList(),
         val activeDownload: String? = null,
@@ -68,6 +72,7 @@ class DogoOptionsViewModel(
     private val store = OptionsStore(application)
     private var downloadJob: Job? = null
     private var connectionJob: Job? = null
+    private val systemAccess = SystemAccess(application)
 
     private val _uiState = MutableStateFlow(UiState(options = store.load()))
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -76,6 +81,23 @@ class DogoOptionsViewModel(
         val recommendation = HardwareProfile.fromDevice(application)
         _uiState.update { it.copy(recommendation = recommendation) }
         refresh()
+        refreshAccess()
+    }
+
+    /** Re-reads which access tiers are available. Cheap; call on resume. */
+    fun refreshAccess() {
+        viewModelScope.launch {
+            val statuses = systemAccess.statuses()
+            _uiState.update { it.copy(access = statuses) }
+        }
+    }
+
+    /** Asks Shizuku or the root manager for access, then refreshes. */
+    fun requestAccess(tier: Tier) {
+        viewModelScope.launch {
+            systemAccess.request(tier)
+            refreshAccess()
+        }
     }
 
     private fun refresh() {

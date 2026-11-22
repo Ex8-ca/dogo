@@ -13,8 +13,21 @@ package app.dogo.launcher.ui.setup
  */
 object SetupChatAgent {
 
+    /** An app the agent may refer to. */
+    data class InstalledApp(val label: String, val packageName: String)
+
+    /** What the phone can actually do right now, so the agent doesn't over-promise. */
+    data class PhoneContext(
+        val apps: List<InstalledApp> = emptyList(),
+        val systemDarkModeAvailable: Boolean = false,
+        val animationScaleAvailable: Boolean = false,
+    )
+
+    /** Keeps the app list from crowding out the conversation on small models. */
+    const val MAX_APPS = 150
+
     /**
-     * Instructions for the on-device model.
+     * Instructions for the agent.
      *
      * The action names listed here must stay in sync with
      * [app.dogo.launcher.agent.ActionExecutor]; [SetupChatAgentTest] enforces it.
@@ -30,18 +43,48 @@ object SetupChatAgent {
         When you are ready to propose changes, emit one JSON action per line:
 
         {"action": "set_theme", "params": {"theme": "dark"}}
+        {"action": "set_system_dark_mode", "params": {"enabled": true}}
         {"action": "set_wallpaper", "params": {"color": "#1E1E1E"}}
         {"action": "add_to_home", "params": {"package": "com.example.app"}}
         {"action": "hide_app", "params": {"package": "com.example.app"}}
         {"action": "create_folder", "params": {"name": "Work", "apps": ["com.example.app"]}}
         {"action": "set_animation_scale", "params": {"scale": 0.5}}
 
-        Use real Android package names when you name an app. Explain each action in
-        one short sentence. Nothing is applied until the user approves it.
+        set_theme changes only the Dogo launcher (light, dark or system).
+        set_system_dark_mode changes the whole phone's dark mode.
+        Only use package names from the installed apps list below. If an app the
+        user mentions isn't installed, say so instead of guessing a package name.
+        Explain each action in one short sentence. Nothing is applied until the
+        user approves it.
     """.trimIndent()
 
+    /** The system prompt plus facts about this phone. */
+    fun systemPromptFor(phone: PhoneContext): String = buildString {
+        append(systemPrompt)
+        append("\n\n")
+        append(phoneSection(phone))
+    }
+
+    internal fun phoneSection(phone: PhoneContext): String = buildString {
+        append("About this phone:\n")
+        append("- Changing the phone's dark mode is ")
+        append(if (phone.systemDarkModeAvailable) "available.\n" else "NOT available yet; offer set_theme for Dogo instead.\n")
+        append("- Changing animation speed is ")
+        append(if (phone.animationScaleAvailable) "available.\n" else "NOT available yet.\n")
+        if (phone.apps.isEmpty()) {
+            append("\nInstalled apps: (unknown)\n")
+        } else {
+            val shown = phone.apps.sortedBy { it.label.lowercase() }.take(MAX_APPS)
+            append("\nInstalled apps (label = package):\n")
+            shown.forEach { append("- ").append(it.label).append(" = ").append(it.packageName).append('\n') }
+            if (phone.apps.size > shown.size) {
+                append("(and ${phone.apps.size - shown.size} more not listed)\n")
+            }
+        }
+    }
+
     /**
-     * Builds a full prompt for [userMessage].
+     * Builds a full single-string prompt for small on-device models.
      *
      * @param history prior turns as `role` to `message`, where role is "user" or
      *   "assistant".
@@ -51,8 +94,9 @@ object SetupChatAgent {
         userMessage: String,
         history: List<Pair<String, String>>,
         screenText: String? = null,
+        phone: PhoneContext? = null,
     ): String = buildString {
-        append(systemPrompt)
+        append(phone?.let { systemPromptFor(it) } ?: systemPrompt)
         append("\n\n")
 
         if (screenText != null) {
