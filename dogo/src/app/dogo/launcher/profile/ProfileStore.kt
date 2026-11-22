@@ -11,7 +11,10 @@ import android.content.Context
 class ProfileStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
+    private val souls = SoulStore.of(context)
+
     fun load(): AssistantProfile = AssistantProfile(
+        soul = souls.read().text,
         name = ProfileText.cleanName(prefs.getString(KEY_NAME, "").orEmpty()),
         style = ProfileText.clean(prefs.getString(KEY_STYLE, "").orEmpty(), ProfileText.MAX_STYLE),
         recallEarlier = prefs.getBoolean(KEY_RECALL, true),

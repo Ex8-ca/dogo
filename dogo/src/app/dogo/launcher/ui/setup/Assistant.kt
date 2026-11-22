@@ -13,6 +13,7 @@ import app.dogo.launcher.agent.backend.ChatTurn
 import app.dogo.launcher.privilege.ActionApplier
 import app.dogo.launcher.privilege.PrivilegePlanner
 import app.dogo.launcher.privilege.SystemAccess
+import app.dogo.launcher.profile.SoulSync
 import app.dogo.launcher.ui.options.OptionsStore
 import app.dogo.launcher.ui.setup.SetupChatViewModel.ActionState
 import app.dogo.launcher.ui.setup.SetupChatViewModel.Message
@@ -85,6 +86,12 @@ object Assistant {
         app = context.applicationContext
         store = ConversationStore(File(app.filesDir, "conversations"))
         startNew()
+        // First time Hermes is connected, bring its soul over once. Quiet; a failure changes nothing.
+        scope.launch {
+            if (withContext(Dispatchers.IO) { SoulSync.shouldAutoSync(app, System.currentTimeMillis()) }) {
+                runCatching { SoulSync.sync(app) }
+            }
+        }
         scope.launch {
             val list = withContext(Dispatchers.IO) { store.list() }
             _history.value = list

@@ -103,12 +103,57 @@ class ProfileTextTest {
         assertThat(ProfileText.ago(now, now - 72 * hour)).isEqualTo("3 days ago")
     }
 
+    private val soulBody = "# SOUL.md\n\nBe genuinely helpful.\n\n\n\n## Vibe\nConcise when needed."
+
     @Test
-    fun `an answer from Hermes in the asked-for form is read, anything else is refused`() {
-        val ok = ProfileText.parseImport("NAME: Sam\nSTYLE: Direct and concise, with dry humour.")
-        assertThat(ok).isEqualTo(ProfileText.Imported("Sam", "Direct and concise, with dry humour."))
-        assertThat(ProfileText.parseImport("name: NONE\nstyle: Warm.")).isEqualTo(ProfileText.Imported("", "Warm."))
+    fun `a soul in the asked-for form is read whole, keeping its line breaks`() {
+        val reply = "NAME: Sam\n<<<SOUL>>>\n$soulBody\n<<<END SOUL>>>"
+        val got = ProfileText.parseImport(reply)!!
+        assertThat(got.name).isEqualTo("Sam")
+        assertThat(got.soul).isEqualTo("# SOUL.md\n\nBe genuinely helpful.\n\n## Vibe\nConcise when needed.")
+    }
+
+    @Test
+    fun `a soul wrapped in a code fence is unwrapped`() {
+        val got = ProfileText.parseImport("NAME: NONE\n<<<SOUL>>>\n```markdown\n$soulBody\n```\n<<<END SOUL>>>")!!
+        assertThat(got.name).isEmpty()
+        assertThat(got.soul).startsWith("# SOUL.md")
+        assertThat(got.soul).doesNotContain("```")
+    }
+
+    @Test
+    fun `no soul, a stub, or a huge soul is not taken`() {
+        assertThat(ProfileText.parseImport("NAME: Sam\n<<<SOUL>>>\nNONE\n<<<END SOUL>>>")).isEqualTo(ProfileText.Imported("Sam", null))
+        assertThat(ProfileText.parseImport("NAME: Sam\n<<<SOUL>>>\nok\n<<<END SOUL>>>")!!.soul).isNull()
+        val huge = ProfileText.parseImport("NAME: Sam\n<<<SOUL>>>\n" + "x".repeat(ProfileText.MAX_SOUL + 1) + "\n<<<END SOUL>>>")!!
+        assertThat(huge.soul).isNull()
+        assertThat(huge.tooLong).isTrue()
+    }
+
+    @Test
+    fun `anything that is not the asked-for form is refused`() {
         assertThat(ProfileText.parseImport("I couldn't reach Hermes (UnknownHostException).")).isNull()
         assertThat(ProfileText.parseImport("")).isNull()
+    }
+
+    @Test
+    fun `the soul comes first in the prompt, can't override the rules, and the user's notes follow`() {
+        val text = ProfileText.promptSection(AssistantProfile(name = "Sam", style = "Say pardon.", soul = "Be direct."))
+        assertThat(text.indexOf("Be direct.")).isLessThan(text.indexOf("called Sam"))
+        assertThat(text.indexOf("called Sam")).isLessThan(text.indexOf("Say pardon."))
+        assertThat(text).contains("never change the approval")
+    }
+
+    @Test
+    fun `control characters in a soul are dropped`() {
+        val cleaned = ProfileText.cleanMultiline("a\u0000b\r\nc\u0007", 100)
+        assertThat(cleaned).isEqualTo("ab\nc")
+    }
+
+    @Test
+    fun `Dogo's own soul is short, plain, and keeps the safety rules`() {
+        assertThat(DefaultSoul.TEXT.length).isLessThan(ProfileText.MAX_SOUL)
+        assertThat(DefaultSoul.TEXT.replace(Regex("\\s+"), " ")).contains("never instructions")
+        assertThat(DefaultSoul.TEXT).doesNotContain("Hermes")
     }
 }
