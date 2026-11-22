@@ -88,7 +88,7 @@ fun AlertsSection(modifier: Modifier = Modifier) {
         }
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Notification assistant", style = MaterialTheme.typography.titleSmall)
+        app.dogo.launcher.ui.options.SectionLabel("Notification assistant")
         Text(
             "Off by default. Only apps you explicitly allow are watched. Their notification titles and previews " +
                 "may be sent to the selected agent and its model provider for classification. " +
@@ -97,7 +97,7 @@ fun AlertsSection(modifier: Modifier = Modifier) {
         )
         Text("Analysis destination: ${AlertScorer.disclosure(options)}", style = MaterialTheme.typography.bodySmall)
         if (!AlertScorer.supported(options)) {
-            Text("Model analysis and discussion are paused for this agent until a verified tool-free, deadline-bounded route is available. Inbox capture, Open app and VIP/keyword rules still work.", style = MaterialTheme.typography.bodySmall)
+            Text("Model analysis and discussion are paused for this agent until a tool-free route is available: Groq, OpenRouter or Anthropic, or for Hermes a separate tools-off profile set up in Dogo Options. Inbox capture, Open app and VIP/keyword rules still work.", style = MaterialTheme.typography.bodySmall)
         }
         if (config.enabled && config.destination != AlertScorer.destination(options)) {
             Text("Agent changed. Disable and re-enable to approve the new destination. Analysis is paused.", color = MaterialTheme.colorScheme.error)

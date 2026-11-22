@@ -69,7 +69,7 @@ fun WallpaperThemeSection(modifier: Modifier = Modifier) {
     var isError by remember { mutableStateOf(false) }
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Wallpaper colours", style = MaterialTheme.typography.titleSmall)
+        app.dogo.launcher.ui.options.SectionLabel("Wallpaper colours")
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

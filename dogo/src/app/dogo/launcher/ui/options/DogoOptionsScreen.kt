@@ -109,7 +109,7 @@ fun DogoOptionsScreen(
             modifier = Modifier
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             state.recommendation?.let { rec ->
@@ -124,7 +124,8 @@ fun DogoOptionsScreen(
                 IssueCard(issue)
             }
 
-            SectionLabel("Agent")
+            GroupHeader("Agent", "Who Dogo talks to, and how hard it thinks.", first = true)
+
             val noLocalModel = state.recommendation?.primary == null
             AgentCatalog.all.forEach { preset ->
                 AgentRow(
@@ -152,6 +153,15 @@ fun DogoOptionsScreen(
                     connection = state.connection,
                     onEdit = viewModel::updateAgentConfig,
                     onTest = viewModel::testConnection,
+                )
+            }
+
+            if (state.options.agent == AgentCatalog.HERMES) {
+                SafeRouteCard(
+                    config = state.options.configFor(AgentCatalog.HERMES_SAFE),
+                    check = state.safeRoute,
+                    onEdit = viewModel::updateSafeRoute,
+                    onTest = viewModel::testSafeRoute,
                 )
             }
 
@@ -196,16 +206,7 @@ fun DogoOptionsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            SectionLabel("System access")
-            Text(
-                "Some changes reach beyond the launcher. Dogo uses the least access " +
-                    "that works, and only for changes you approve.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            state.access.filter { it.tier != Tier.NONE }.forEach { status ->
-                AccessRow(status, onRequest = { viewModel.requestAccess(status.tier) })
-            }
+            GroupHeader("You and voice", "Your name, Dogo's personality, and talking to Dogo out loud.")
 
             SectionLabel("About you")
             app.dogo.launcher.profile.AssistantProfileSection()
@@ -219,7 +220,7 @@ fun DogoOptionsScreen(
                 onTest = viewModel::testVoice,
             )
 
-            AlertsSection()
+            GroupHeader("Look and feel", "The ring, colours and themes.")
 
             SectionLabel("Dogo Ring")
             RingSection(
@@ -238,36 +239,38 @@ fun DogoOptionsScreen(
                 onWallpaperToggle = viewModel::setThemeWallpaper,
             )
 
-            SectionLabel("Plugins")
-            PluginsSection(
-                plugins = state.plugins,
-                broken = state.brokenPlugins,
-                onToggle = viewModel::setPluginEnabled,
-            )
+            GroupHeader("Notifications", "Off until you turn it on. Only apps you pick are watched.")
 
-            SectionLabel("What Dogo may change")
-            Text(
-                "Ask before each change",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            )
+            AlertsSection()
+
+            GroupHeader("What Dogo can do", "You decide what Dogo may change, and whether it asks first.")
+
+            SectionLabel("Approval")
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("Confirm every action", style = MaterialTheme.typography.bodyMedium)
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text("Confirm every action", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Dogo shows each change as a card and waits for your tap. Turn this off only for changes you trust.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Switch(
                     checked = state.options.requireConfirmation,
                     onCheckedChange = viewModel::setRequireConfirmation,
                 )
             }
+
+            SectionLabel("Changes Dogo may make")
             AgentOptions.ActionType.entries.forEach { type ->
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(Modifier.weight(1f)) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
                         Text(type.title, style = MaterialTheme.typography.bodyMedium)
                         Text(
                             type.blurb,
@@ -281,16 +284,55 @@ fun DogoOptionsScreen(
                     )
                 }
             }
+
+            SectionLabel("System access")
+            Text(
+                "Some changes reach beyond the launcher. Dogo uses the least access " +
+                    "that works, and only for changes you approve.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            state.access.filter { it.tier != Tier.NONE }.forEach { status ->
+                AccessRow(status, onRequest = { viewModel.requestAccess(status.tier) })
+            }
+
+            GroupHeader("Plugins", "Extra actions from plugins you have installed.")
+
+            PluginsSection(
+                plugins = state.plugins,
+                broken = state.brokenPlugins,
+                onToggle = viewModel::setPluginEnabled,
+            )
         }
     }
 }
 
 @Composable
-private fun SectionLabel(text: String) {
+private fun GroupHeader(title: String, subtitle: String, first: Boolean = false) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = if (first) 4.dp else 24.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        if (!first) HorizontalDivider()
+        Text(
+            title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = if (first) 0.dp else 8.dp),
+        )
+        Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+internal fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier.padding(top = 12.dp),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.secondary,
+        modifier = modifier.padding(top = 16.dp),
     )
 }
 
@@ -429,6 +471,59 @@ private fun AgentRow(preset: AgentPreset, selected: Boolean, onSelect: () -> Uni
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun SafeRouteCard(
+    config: AgentConfig,
+    check: DogoOptionsViewModel.ConnectionCheck,
+    onEdit: ((AgentConfig) -> AgentConfig) -> Unit,
+    onTest: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var showKey by remember { mutableStateOf(false) }
+    Card(modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Hermes with no tools (for notifications and screens)", style = MaterialTheme.typography.labelLarge)
+            Text(
+                "Notification and screen text can't be trusted, so it never goes to your normal Hermes, which has tools. " +
+                    "Set up a second Hermes profile with every tool turned off, then enter its own address and key here. " +
+                    "Dogo asks the server what tools it has and refuses the route unless the answer is none.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = config.baseUrl.orEmpty(),
+                onValueChange = { value -> onEdit { it.copy(baseUrl = value) } },
+                label = { Text("Address of the tools-off profile") },
+                placeholder = { Text("https://your-host/p/dogosafe/v1") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = config.apiKey.orEmpty(),
+                onValueChange = { value -> onEdit { it.copy(apiKey = value.trim()) } },
+                label = { Text("Its own API key") },
+                singleLine = true,
+                visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = { TextButton(onClick = { showKey = !showKey }) { Text(if (showKey) "Hide" else "Show") } },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = onTest, enabled = check !is DogoOptionsViewModel.ConnectionCheck.Running) { Text("Test route") }
+                if (check is DogoOptionsViewModel.ConnectionCheck.Running) {
+                    CircularProgressIndicator(Modifier.padding(start = 12.dp).size(20.dp), strokeWidth = 2.dp)
+                }
+            }
+            when (check) {
+                is DogoOptionsViewModel.ConnectionCheck.Ok -> Text(check.reply, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                is DogoOptionsViewModel.ConnectionCheck.Failed -> Text(check.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                else -> Unit
+            }
         }
     }
 }
@@ -617,7 +712,7 @@ private fun ThemesSection(
         OutlinedTextField(
             value = community,
             onValueChange = { community = it },
-            label = { Text("Community theme (GitHub owner/repo)") },
+            label = { Text("Community theme (owner/repo)") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             trailingIcon = {
@@ -891,7 +986,7 @@ private fun VoiceSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text("Voice", style = MaterialTheme.typography.labelLarge)
+        Text("Speaking voice", style = MaterialTheme.typography.labelLarge)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RealtimeProtocol.VOICES.forEach { v ->
                 androidx.compose.material3.FilterChip(

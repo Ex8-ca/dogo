@@ -11,11 +11,14 @@ import androidx.lifecycle.viewModelScope
 import app.dogo.launcher.agent.AgentOptions
 import app.dogo.launcher.agent.AgentOptions.ActionType
 import app.dogo.launcher.agent.backend.AgentBackends
+import app.dogo.launcher.agent.backend.AgentCatalog
 import app.dogo.launcher.agent.backend.AgentConfig
 import app.dogo.launcher.agent.backend.AgentPreset
 import app.dogo.launcher.agent.backend.ChatTurn
 import app.dogo.launcher.agent.backend.ModelLister
 import app.dogo.launcher.agent.backend.Termux
+import app.dogo.launcher.agent.backend.ToolFreeAccess
+import app.dogo.launcher.agent.backend.ToolFreeRoute
 import app.dogo.launcher.llm.HardwareProfile
 import app.dogo.launcher.llm.ModelCatalog
 import app.dogo.launcher.llm.ModelDownloader
@@ -81,6 +84,8 @@ class DogoOptionsViewModel(
     data class UiState(
         val options: AgentOptions = AgentOptions(),
         val connection: ConnectionCheck = ConnectionCheck.Idle,
+        /** Result of the last "Test route" for the Hermes tools-off route. */
+        val safeRoute: ConnectionCheck = ConnectionCheck.Idle,
         val access: List<TierStatus> = emptyList(),
         val plugins: List<PluginRow> = emptyList(),
         val brokenPlugins: List<PluginRegistry.Broken> = emptyList(),
@@ -328,6 +333,25 @@ class DogoOptionsViewModel(
                 },
             )
             _uiState.update { it.copy(connection = check) }
+        }
+    }
+
+    /** Saves edits to the tools-off route's address or key. */
+    fun updateSafeRoute(transform: (AgentConfig) -> AgentConfig) {
+        updateOptions { it.withConfig(AgentCatalog.HERMES_SAFE, transform(it.configFor(AgentCatalog.HERMES_SAFE))) }
+        _uiState.update { it.copy(safeRoute = ConnectionCheck.Idle) }
+    }
+
+    /** Asks the tools-off route which tools it has; only "none" passes. */
+    fun testSafeRoute() {
+        _uiState.update { it.copy(safeRoute = ConnectionCheck.Running) }
+        viewModelScope.launch {
+            val result = ToolFreeAccess.check(_uiState.value.options)
+            val shown = when (result) {
+                is ToolFreeRoute.Check.Safe -> ConnectionCheck.Ok("The route has no tools. Notifications and screens can use it.", emptyList())
+                is ToolFreeRoute.Check.Refused -> ConnectionCheck.Failed(result.reason)
+            }
+            _uiState.update { it.copy(safeRoute = shown) }
         }
     }
 
