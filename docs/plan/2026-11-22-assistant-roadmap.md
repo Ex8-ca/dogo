@@ -85,6 +85,36 @@ work by typing and by voice, and the answer says where it came from.
 
 ## Phase 2: proactive alerts
 
+Design check against the real code (2026-11-22). Findings that change the work:
+
+- Hook: one line in `NotificationListener.onNotificationPosted` (line ~275),
+  handing plain fields to a background worker. The existing dot logic stays
+  untouched.
+- Trap: turning off notification dots makes the listener unbind itself
+  (`NotificationListener.java` ~255-259), which would silently stop alerts.
+  Guard it when alerts are on.
+- Dogo posts no notifications today and never asks for `POST_NOTIFICATIONS`
+  (declared, never requested). Needed on Android 13+, asked when alerts are
+  turned on. Four channels by tier (interrupt, notify, digest, service);
+  importance can't be changed after creation, so choose it up front.
+- Dogo's own alerts re-enter its own listener; filter its package.
+- Updates re-fire for the same notification key: dedupe by key and a
+  per-sender cooldown.
+- ntfy: a foreground service with a streaming OkHttp connection and
+  `?since=` resume. Not WorkManager (15-minute floor, Doze), and it isn't a
+  dependency here anyway. Use the `specialUse` service type; `dataSync` is
+  time-limited on Android 15.
+- Alert rules live in their own store, not in `AgentOptions` (the
+  every-action-has-a-switch test only covers agent actions). A "send a reply"
+  action, if ever added, is an agent action and goes through that test.
+- Privacy: never store notification text; the rolling log holds time, app,
+  sender key, score and reason only. Keep it out of conversations and out of
+  Android backup. Scoring is hard-wired to the on-device model; any remote
+  scorer is per-app opt-in, checked inside the scorer so a test can assert it.
+
+Build order: pure engine and tests (`alerts/`, no Android imports) first, then
+the listener hook and notifier, then settings, then ntfy.
+
 Goal: Dogo tells you about the things you would want to know, and stays quiet
 otherwise. Quiet matters more than clever; one wrong alert a day and the user
 turns it off.
@@ -156,6 +186,33 @@ Done when: dropping a new `SKILL.md` in changes the answer to a matching
 request, on both Gemma and Hermes, with no app update.
 
 ## Phase 4: marketplace
+
+Spike result (2026-11-22, read-only, checked against the live site): the
+marketplace does have a public source, so Dogo should not scrape pages.
+
+- Plugins: `https://hermes-agent.nousresearch.com/docs/api/plugin-catalog.json`
+  (redirects to GitHub Pages, about 5 MB, `{generated_at, entries[2578]}`).
+  This is the file Hermes' own CLI and Desktop read. Each entry has a name, a
+  repo, a mandatory 40-character `sha` pin, a tier (official, verified,
+  community), a description, and a `capabilities` block (tools, hooks, env it
+  needs) plus `known_issues`.
+- Skills: `.../docs/api/skills.json` is a 67 MB array of about 105,000 items
+  across several registries. Too big for a phone. Use only the official subset
+  (about 141 optional skills), or ask Hermes to search.
+- Not a documented API: no version number or stability promise. Parse
+  defensively (only name, repo and sha required), follow redirects, cache with
+  revalidation, show `generated_at`, and ship a small bundled snapshot as a
+  fallback.
+- The phone installs nothing itself. Installs go through the Hermes host
+  (`hermes plugins install <name>`, `hermes skills install <installIdentifier>`
+  or the `hermes://` links), so the SHA pin and the security scan stay in the
+  path. Community skills are blocked by the scan if it finds anything cautionary.
+- Skill format: a folder with `SKILL.md` (YAML frontmatter: name, description,
+  version, platforms, metadata.hermes.{tags, category, config}) and optional
+  references/, templates/, scripts/. Same format on the phone, as planned.
+
+Still unchecked: whether the files support conditional requests (only
+Last-Modified was seen), and the gzip size of skills.json.
 
 Goal: browse and install from the Hermes marketplace inside Dogo.
 
