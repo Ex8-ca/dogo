@@ -50,9 +50,10 @@ class OptionsStore(
                     if (raw == null) {
                         defaults.allowedActions
                     } else {
-                        raw.mapNotNull { name ->
-                            ActionType.entries.firstOrNull { it.name == name }
-                        }.toSet()
+                        // Files written before KEY_KNOWN_ACTIONS existed knew
+                        // exactly the original six types.
+                        val known = prefs.getStringSet(KEY_KNOWN_ACTIONS, null) ?: ORIGINAL_ACTIONS
+                        resolveAllowed(raw, known)
                     }
                 }.getOrDefault(defaults.allowedActions),
                 requireConfirmation = prefs.getBoolean(
@@ -74,6 +75,7 @@ class OptionsStore(
             .putString(KEY_MODEL, options.modelId)
             .putString(KEY_THINKING, options.thinkingLevel.name)
             .putStringSet(KEY_ACTIONS, options.allowedActions.map { it.name }.toSet())
+            .putStringSet(KEY_KNOWN_ACTIONS, ActionType.entries.map { it.name }.toSet())
             .putBoolean(KEY_CONFIRM, options.requireConfirmation)
             .apply()
     }
@@ -89,5 +91,26 @@ class OptionsStore(
         private const val KEY_THINKING = "thinking"
         private const val KEY_ACTIONS = "actions"
         private const val KEY_CONFIRM = "require_confirmation"
+
+        /** Every action type that existed when the file was written. */
+        private const val KEY_KNOWN_ACTIONS = "actions_known"
+
+        internal val ORIGINAL_ACTIONS = setOf(
+            "SET_THEME",
+            "SET_WALLPAPER",
+            "CREATE_FOLDER",
+            "SET_ANIMATION_SCALE",
+            "ADD_TO_HOME",
+            "HIDE_APP",
+        )
+
+        /**
+         * The allowed set after an upgrade. A type the user switched off stays
+         * off; a type added since the file was written starts on, like every
+         * other default, rather than looking switched off by the user.
+         */
+        internal fun resolveAllowed(stored: Set<String>, known: Set<String>): Set<ActionType> = ActionType.entries.filter { type ->
+            type.name in stored || type.name !in known
+        }.toSet()
     }
 }

@@ -70,6 +70,7 @@ class AgentOptionsTest {
             Action.SetAnimationScale(0.5f),
             Action.AddToHome("com.example"),
             Action.HideApp("com.example"),
+            Action.Plugin("io.github.you.timer", "start_timer", "{}"),
         )
         for (action in wireActions) {
             val type = AgentOptions.ActionType.of(action)
@@ -261,5 +262,25 @@ class AgentOptionsTest {
             allowedActions = setOf(AgentOptions.ActionType.SET_THEME),
         )
         assertThat(options.isAllowed(parsed)).isFalse()
+    }
+
+    // ---- upgrades -----------------------------------------------------------
+
+    @Test
+    fun `action types added in an update start on, user choices stay`() {
+        // A pre-update file: the original six, with HIDE_APP switched off.
+        val stored = app.dogo.launcher.ui.options.OptionsStore.ORIGINAL_ACTIONS - "HIDE_APP"
+        val allowed = app.dogo.launcher.ui.options.OptionsStore.resolveAllowed(
+            stored,
+            app.dogo.launcher.ui.options.OptionsStore.ORIGINAL_ACTIONS,
+        )
+        assertThat(allowed).doesNotContain(AgentOptions.ActionType.HIDE_APP)
+        assertThat(allowed).contains(AgentOptions.ActionType.PLUGIN)
+        assertThat(allowed).contains(AgentOptions.ActionType.SET_SYSTEM_DARK_MODE)
+
+        // Once a file records every type, a newly switched-off one stays off.
+        val everything = AgentOptions.ActionType.entries.map { it.name }.toSet()
+        val afterOff = app.dogo.launcher.ui.options.OptionsStore.resolveAllowed(everything - "PLUGIN", everything)
+        assertThat(afterOff).doesNotContain(AgentOptions.ActionType.PLUGIN)
     }
 }
