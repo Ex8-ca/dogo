@@ -383,6 +383,12 @@ android {
             res.srcDir 'dogo/res'
         }
 
+        // Dogo channel manifest additions (network security config), merged
+        // on top of the launcher manifest for dogo builds only.
+        dogo {
+            manifest.srcFile "dogo/AndroidManifest.xml"
+        }
+
         withQuickstep {
             res.srcDirs = ['quickstep/res', 'quickstep/recents_ui_overrides/res']
             java.srcDirs = ['quickstep/src', 'quickstep/dagger', 'quickstep/recents_ui_overrides/src', 'quickstep/src_protolog']
