@@ -478,6 +478,55 @@ Done when: Shizuku is paired on the Pixel and one shell action runs end to end
 from a card, and each Tenkai row above is either built, scheduled, or marked
 "not doing".
 
+## Phase 6: the agent uses other apps (phone use)
+
+Requested 2026-11-22: the way debugging works on the phone today (open an app,
+read what is on screen, pick an item, change it) offered to the agent for any
+app. Not built. Inspired by OpenMausBot (Apache-2.0, read 2026-11-22), which is
+a desktop app: its "phone" is only a remote control for the desktop, so it is
+not a template for on-phone agents. Ideas taken: per-agent approval levels, and
+a "computer" each agent can drive. Not taken: its default of Full access.
+
+Three ways to drive an app, by access tier:
+
+- **Accessibility service (Permission tier, works for everyone)**: read the
+  on-screen element tree, tap, type, scroll, press back/home. Dogo already ships
+  `LawnchairAccessibilityService`, but it listens to no events and cannot read
+  windows (only used for the lock-screen gesture). Needs the user to enable it in
+  Android settings and a service config that can read window content. This is the
+  main route.
+- **Shell (Shizuku or root)**: `uiautomator dump` and `input tap`, which is what
+  the adb helper does now. Same ability, needs Shizuku or root.
+- **From the server**: the Hermes `phone-harness` plugin drives the phone over
+  adb. Needs a network adb link; each call goes through Hermes's own approval.
+
+Loop: read a compact element list (text, role, position, not a screenshot) ->
+agent proposes one step -> Dogo checks it against the rules -> run -> read again.
+
+Rules (the screen of another app is personal and untrusted, like notification
+text; text on screen can try to instruct the agent):
+
+- Off by default. The user picks which apps it may drive. A fixed deny list:
+  banking and wallet apps, password managers, Android security and install
+  screens, and Dogo's own settings.
+- The user approves a task, not every tap: app, goal, step limit and time limit.
+  Anything that sends, buys, deletes, or changes an account setting needs its own
+  card, whatever the task approval says.
+- Never reads or types into password fields. Apps that block screen reading
+  appear empty, and the agent is told so rather than guessing.
+- A visible indicator with a Stop button for the whole task. Stop, step limit,
+  timeout, leaving the approved app, or the screen locking each end the task.
+- Screen text goes only to the selected agent, with the same disclosure as
+  notifications. Text from the screen can never approve a step, widen the app
+  list, or install a skill.
+
+Slices: (1) element-list snapshot, redaction and the rules as pure code with
+tests; (2) service configuration and the tap/type/scroll actions; (3) the agent
+protocol (read screen, propose step) and the task approval card; (4) indicator and
+Stop; (5) try it on the Pixel with a harmless app (Clock or Calculator) before any
+other. About 1 to 1.5 weeks. Depends on the safe agent route in Phase 2 for any
+text read off the screen.
+
 ## Order and size
 
 | Phase | What | Size |
