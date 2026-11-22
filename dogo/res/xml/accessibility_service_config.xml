@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2026 The Dogo Authors. SPDX-License-Identifier: Apache-2.0
+     Dogo channel only (overrides the upstream file): lets Dogo read the open app's screen and
+     press things in it, but only while the user has approved a task. No events are listened to. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/accessibility_service_description"
+    android:accessibilityFlags="flagDefault"
+    android:canRetrieveWindowContent="true"
+    android:packageNames="" />

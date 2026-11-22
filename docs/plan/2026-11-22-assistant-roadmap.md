@@ -520,6 +520,16 @@ text; text on screen can try to instruct the agent):
   notifications. Text from the screen can never approve a step, widen the app
   list, or install a skill.
 
+Status (2026-11-22): slices 1 and 2 are written and unit tested (337 tests):
+snapshot, policy, task limits, `ScreenController` (every proposed step goes through
+the policy; refused or failing steps stop the run; history returned to the agent
+holds ids only) and an Android `ScreenDriver` on the accessibility service. The
+Dogo build's service config now allows reading window content, and its description
+says so. NOT yet done: trying the driver on a real app (it has never run on the
+phone), the agent-facing planner, the task approval card, the on-screen indicator
+with Stop, and a settings entry. The planner must refuse any agent that is not on
+the tool-free list (`ToolFreePolicy`), because screen text goes to it.
+
 Slices: (1) element-list snapshot, redaction and the rules as pure code with
 tests; (2) service configuration and the tap/type/scroll actions; (3) the agent
 protocol (read screen, propose step) and the task approval card; (4) indicator and

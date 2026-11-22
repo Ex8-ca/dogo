@@ -12,7 +12,7 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="managed_by_lawnchair">Managed by Dogo</string>
-    <string name="accessibility_service_description">To perform certain actions when you use a gesture, such as locking your phone, Dogo requires accessibility access.\n\nDogo doesn\'t watch your actions, though all accessibility services require this privilege. Dogo discards any event sent by the system.\n\nTo lock your phone or open the Recents screen, Dogo uses the performGlobalAction accessibility service.</string>
+    <string name="accessibility_service_description">Dogo uses accessibility for two things.\n\nGestures: to lock your phone or open Recents when you use a gesture.\n\nPhone use: only after you approve a task in Dogo, it can read the screen of the one app you chose and tap, type and scroll in it. It stops when you press Stop, when the task ends, or when the screen locks. It never reads password fields, and it does not watch what you do the rest of the time.</string>
     <string name="debug_restart_launcher">Restart Dogo</string>
     <string name="prediction_mode_lawnchair" translatable="false">Dogo</string>
     <string name="missing_usage_access_desc">To improve app suggestions, turn on usage access for <xliff:g id="name" example="Dogo">%1$s</xliff:g></string>

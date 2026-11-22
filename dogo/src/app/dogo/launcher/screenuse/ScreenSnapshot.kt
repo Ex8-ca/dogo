@@ -149,8 +149,11 @@ data class ScreenSnapshot(
          * nodes with no text, no description and no click/edit/scroll ability (their children are
          * still visited). Password nodes are kept as redacted placeholders; their text, description
          * and children are never read.
+         *
+         * [onKept] is told which real node each kept element came from, so a later step can act
+         * on exactly what the agent was shown.
          */
-        fun build(packageName: String?, root: ScreenNode?): ScreenSnapshot {
+        fun build(packageName: String?, root: ScreenNode?, onKept: ((ScreenNode, ScreenElement) -> Unit)? = null): ScreenSnapshot {
             val pkg = packageName.orEmpty()
             if (root == null) return ScreenSnapshot(pkg, emptyList(), readable = false, truncated = false)
 
@@ -212,6 +215,7 @@ data class ScreenSnapshot(
                 }
                 chars += size
                 elements += element
+                onKept?.invoke(node, element)
             }
             return ScreenSnapshot(pkg, elements, readable = elements.isNotEmpty(), truncated = truncated, omitted = omitted)
         }
