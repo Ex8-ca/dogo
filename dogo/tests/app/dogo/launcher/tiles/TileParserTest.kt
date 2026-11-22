@@ -39,8 +39,8 @@ class TileParserTest {
         assertThat(numbers).containsNoDuplicates()
         for (page in config.pages) {
             assertThat(page.number).isIn(1..TileParser.MAX_PAGES)
-            assertThat(page.columns).isIn(1..8)
-            assertThat(page.rows).isIn(1..16)
+            assertThat(page.columns).isIn(TileParser.MIN_COLUMNS..TileParser.MAX_COLUMNS)
+            assertThat(page.rows).isIn(TileParser.MIN_ROWS..TileParser.MAX_ROWS)
             assertThat(page.tiles.size).isAtMost(TileParser.MAX_TILES_PER_PAGE)
             for (t in page.tiles) {
                 assertThat(t.width).isAtLeast(1)
@@ -74,7 +74,7 @@ class TileParserTest {
             }
 
             page = 1, grid 4x8, clock 4x2+0+0, weather 4x3+0+2, widget:com.example.cal/.CalendarWidget 4x3+0+5
-            page = 2, grid 2x2, notes 1x1+0+0, battery 1x1+1+0
+            page = 2, grid 3x3, notes 1x1+0+0, battery 1x1+1+0
         """.trimIndent()
 
         val config = parse(text)
@@ -100,7 +100,7 @@ class TileParserTest {
     @Test
     fun `pages come back sorted by number and tiles in reading order`() {
         val config = parse(
-            "page = 3, grid 2x2, clock 1x1+0+0\n" +
+            "page = 3, grid 3x3, clock 1x1+0+0\n" +
                 "page = 1, grid 4x4, weather 1x1+3+3, clock 1x1+1+0, notes 1x1+0+0\n",
         )
 
@@ -240,7 +240,7 @@ class TileParserTest {
     @Test
     fun `more than 12 tiles on a page drops the extras`() {
         val tiles = (0 until 14).joinToString(", ") { "notes 1x1+${it % 8}+${it / 8}" }
-        val config = parse("page = 1, grid 8x16, $tiles")
+        val config = parse("page = 1, grid 8x10, $tiles")
 
         assertThat(config.page(1)!!.tiles).hasSize(TileParser.MAX_TILES_PER_PAGE)
         assertThat(config.issues).hasSize(2)
@@ -303,7 +303,7 @@ class TileParserTest {
 
     @Test
     fun `a repeated page number drops the later line`() {
-        val config = parse("page = 1, grid 4x4, clock 2x2+0+0\npage = 1, grid 2x2, weather 1x1+0+0\npage = 2, grid 2x2, notes 1x1+0+0")
+        val config = parse("page = 1, grid 4x4, clock 2x2+0+0\npage = 1, grid 3x3, weather 1x1+0+0\npage = 2, grid 3x3, notes 1x1+0+0")
 
         assertThat(config.pages.map { it.number }).containsExactly(1, 2).inOrder()
         assertThat(kindsOn(config, 1)).containsExactly("clock")
@@ -315,7 +315,7 @@ class TileParserTest {
 
     @Test
     fun `page numbers outside 1 to 8 drop the line`() {
-        val config = parse("page = 0, grid 2x2\npage = 9, grid 2x2\npage = x, grid 2x2\npage = -1, grid 2x2\npage = 8, grid 2x2")
+        val config = parse("page = 0, grid 3x3\npage = 9, grid 3x3\npage = x, grid 3x3\npage = -1, grid 3x3\npage = 8, grid 3x3")
 
         assertThat(config.pages.map { it.number }).containsExactly(8)
         assertThat(config.issues).hasSize(4)
@@ -323,7 +323,7 @@ class TileParserTest {
 
     @Test
     fun `bad grids drop the whole page line`() {
-        val lines = listOf("page = 1, grid 9x4, clock 1x1+0+0", "page = 1, grid 4x17", "page = 1, grid 0x4", "page = 1, grid 4x0", "page = 1, clock 1x1+0+0", "page = 1", "page = 1, grid 4, clock 1x1+0+0")
+        val lines = listOf("page = 1, grid 11x4, clock 1x1+0+0", "page = 1, grid 4x11", "page = 1, grid 0x4", "page = 1, grid 4x0", "page = 1, clock 1x1+0+0", "page = 1", "page = 1, grid 4, clock 1x1+0+0")
         for (line in lines) {
             val config = parse(line)
 
@@ -333,16 +333,40 @@ class TileParserTest {
     }
 
     @Test
-    fun `the largest allowed grid works`() {
-        val config = parse("page = 1, grid 8x16, clock 8x16+0+0")
+    fun `the largest and smallest allowed grids work`() {
+        val large = parse("page = 1, grid 10x10, clock 10x10+0+0")
+        val small = parse("page = 1, grid 3x3, clock 3x3+0+0")
 
-        assertThat(config.issues).isEmpty()
-        assertThat(config.page(1)!!.tiles).hasSize(1)
+        assertThat(large.issues).isEmpty()
+        assertThat(large.page(1)!!.tiles).hasSize(1)
+        assertThat(small.issues).isEmpty()
+        assertThat(small.page(1)!!.tiles).hasSize(1)
+    }
+
+    @Test
+    fun `a grid outside 3 to 10 columns or 3 to 10 rows drops the page with a plain message`() {
+        for (grid in listOf("2x4", "11x4", "4x2", "4x11", "1x1", "0x5", "10x11")) {
+            val config = parse("page = 1, grid $grid, clock 1x1+0+0")
+
+            assertThat(config.isEmpty).isTrue()
+            assertThat(config.issues).hasSize(1)
+            assertThat(config.messages()[0]).contains("3 to 10 columns and 3 to 10 rows")
+            assertThat(config.messages()[0]).contains("the line was ignored")
+            assertPlainMessages(config)
+        }
+    }
+
+    @Test
+    fun `a bad grid on one page leaves the other pages alone`() {
+        val config = parse("page = 1, grid 2x4, clock 1x1+0+0\npage = 2, grid 3x3, clock 1x1+0+0\npage = 3, grid 4x11")
+
+        assertThat(config.pages.map { it.number }).containsExactly(2)
+        assertThat(config.issues).hasSize(2)
     }
 
     @Test
     fun `all 8 pages are read`() {
-        val config = parse((1..8).joinToString("\n") { "page = $it, grid 2x2, clock 1x1+0+0" })
+        val config = parse((1..8).joinToString("\n") { "page = $it, grid 3x3, clock 1x1+0+0" })
 
         assertThat(config.pages).hasSize(8)
         assertThat(config.issues).isEmpty()
@@ -433,7 +457,7 @@ class TileParserTest {
 
     @Test
     fun `unknown top-level settings are ignored with an Unknown setting issue`() {
-        val config = parse("wallpaper = dark\nfoo\npage = 1, grid 2x2, clock 1x1+0+0\n}\n")
+        val config = parse("wallpaper = dark\nfoo\npage = 1, grid 3x3, clock 1x1+0+0\n}\n")
 
         assertThat(kindsOn(config, 1)).containsExactly("clock")
         assertThat(config.issues).hasSize(3)
@@ -456,7 +480,7 @@ class TileParserTest {
     @Test
     fun `content after 8000 chars is ignored`() {
         val pad = ("#" + "x".repeat(98) + "\n").repeat(90)
-        val config = parse("page = 1, grid 2x2, clock 1x1+0+0\n" + pad + "page = 2, grid 2x2, weather 1x1+0+0\n")
+        val config = parse("page = 1, grid 3x3, clock 1x1+0+0\n" + pad + "page = 2, grid 3x3, weather 1x1+0+0\n")
 
         assertThat(config.pages.map { it.number }).containsExactly(1)
         assertThat(config.messages().filter { it.contains("8000") }).hasSize(1)
@@ -464,7 +488,7 @@ class TileParserTest {
 
     @Test
     fun `a 5000 char line is dropped with an issue and later lines still apply`() {
-        val text = "page = 1, grid 4x4, " + "a".repeat(5000) + "\npage = 2, grid 2x2, clock 1x1+0+0\n"
+        val text = "page = 1, grid 4x4, " + "a".repeat(5000) + "\npage = 2, grid 3x3, clock 1x1+0+0\n"
 
         val config = parse(text)
 
@@ -490,8 +514,8 @@ class TileParserTest {
     @Test
     fun `only the first 200 lines are read`() {
         val comments = "# c\n".repeat(199)
-        val atLimit = parse(comments + "page = 1, grid 2x2, clock 1x1+0+0\n")
-        val past = parse(comments + "# c\npage = 1, grid 2x2, clock 1x1+0+0\n")
+        val atLimit = parse(comments + "page = 1, grid 3x3, clock 1x1+0+0\n")
+        val past = parse(comments + "# c\npage = 1, grid 3x3, clock 1x1+0+0\n")
 
         assertThat(atLimit.page(1)).isNotNull()
         assertThat(atLimit.issues).isEmpty()
@@ -548,10 +572,10 @@ class TileParserTest {
             parse("general { border = $hostile }"),
             parse("general { blur = $hostile }"),
             parse("$hostile = 1"),
-            parse("page = $hostile, grid 2x2"),
-            parse("page = 1, grid 2x2, $hostile 1x1+0+0"),
-            parse("page = 1, grid 2x2, widget:$hostile/Cls 1x1+0+0"),
-            parse("page = 1, grid 2x2, clock 1x1+0+0, $hostile 1x1+1+0, clock 2x2+0+0"),
+            parse("page = $hostile, grid 3x3"),
+            parse("page = 1, grid 3x3, $hostile 1x1+0+0"),
+            parse("page = 1, grid 3x3, widget:$hostile/Cls 1x1+0+0"),
+            parse("page = 1, grid 3x3, clock 1x1+0+0, $hostile 1x1+1+0, clock 2x2+0+0"),
         )
         for (config in configs) {
             assertThat(config.issues).isNotEmpty()

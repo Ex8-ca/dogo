@@ -26,8 +26,10 @@ object TileParser {
     const val MAX_LINES = 200
     const val MAX_TILES_PER_PAGE = 12
     const val MAX_PAGES = 8
-    const val MAX_COLUMNS = 8
-    const val MAX_ROWS = 16
+    const val MIN_COLUMNS = 3
+    const val MAX_COLUMNS = 10
+    const val MIN_ROWS = 3
+    const val MAX_ROWS = 10
 
     /**
      * Parses [text]. [knownKinds] are the allowed built-in tile names; `widget:<package>/<class>` is always
@@ -255,13 +257,13 @@ private class Reader(private val known: Set<String>) {
         val columns = grid?.groupValues?.get(1)?.toIntOrNull()
         val rows = grid?.groupValues?.get(2)?.toIntOrNull()
         if (columns == null || rows == null ||
-            columns < 1 || columns > TileParser.MAX_COLUMNS ||
-            rows < 1 || rows > TileParser.MAX_ROWS
+            columns < TileParser.MIN_COLUMNS || columns > TileParser.MAX_COLUMNS ||
+            rows < TileParser.MIN_ROWS || rows > TileParser.MAX_ROWS
         ) {
             issue(
                 lineNo,
-                "Page $number on line $lineNo needs a grid like 'grid 4x8' with 1 to ${TileParser.MAX_COLUMNS} " +
-                    "columns and 1 to ${TileParser.MAX_ROWS} rows, so the line was ignored.",
+                "Page $number on line $lineNo needs a grid like 'grid 4x8' with ${TileParser.MIN_COLUMNS} to ${TileParser.MAX_COLUMNS} " +
+                    "columns and ${TileParser.MIN_ROWS} to ${TileParser.MAX_ROWS} rows, so the line was ignored.",
             )
             return
         }

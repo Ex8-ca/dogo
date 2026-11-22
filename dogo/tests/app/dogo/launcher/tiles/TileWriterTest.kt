@@ -24,7 +24,7 @@ class TileWriterTest {
     fun `write gives a header, a general block and sorted pages with tiles in reading order`() {
         val config = TileConfig(
             pages = listOf(
-                TilePage(2, 2, 2, listOf(TileSpec("notes", 1, 1, 1, 1), TileSpec("clock", 1, 1, 0, 0))),
+                TilePage(2, 3, 3, listOf(TileSpec("notes", 1, 1, 1, 1), TileSpec("clock", 1, 1, 0, 0))),
                 TilePage(1, 4, 8, listOf(TileSpec("weather", 4, 3, 0, 2), TileSpec("clock", 4, 2, 0, 0))),
             ),
             style = TileStyle(gaps = 12, rounding = 20, border = TileColour.Rgba(255, 136, 0, 255), borderSize = 3, blur = true),
@@ -43,7 +43,7 @@ class TileWriterTest {
                 blur = on
             }
             page = 1, grid 4x8, clock 4x2+0+0, weather 4x3+0+2
-            page = 2, grid 2x2, clock 1x1+0+0, notes 1x1+1+1
+            page = 2, grid 3x3, clock 1x1+0+0, notes 1x1+1+1
         """.trimIndent() + "\n"
         assertThat(text).isEqualTo(expected)
         assertThat(text).startsWith("#")
@@ -92,8 +92,8 @@ class TileWriterTest {
             "# only a comment",
             "general { gaps = 3 }\npage = 2, grid 3x3, notes 1x1+2+2, clock 2x2+0+0\npage = 1, grid 4x8, weather 4x3+0+2, clock 4x2+0+0",
             "general {\n gaps = 99\n rounding = 5\n border = RGBA(AABBCC80)\n blur = on\n}\npage = 1, grid 4x4, clock 5x5+0+0, battery 2x2+0+0, notes 2x2+1+1, bogus 1x1+3+3",
-            "page = 1, grid 8x16, widget:com.example.cal/.Cal 8x4+0+0, widget:org.a/Outer\$Inner 4x4+0+4, clock 1x1+7+15",
-            "page = 1, grid 4x4, clock 2x2+0+0\npage = 1, grid 2x2, notes 1x1+0+0\npage = 5, grid 1x1",
+            "page = 1, grid 10x10, widget:com.example.cal/.Cal 10x4+0+0, widget:org.a/Outer\$Inner 4x4+0+4, clock 1x1+9+9",
+            "page = 1, grid 4x4, clock 2x2+0+0\npage = 1, grid 3x3, notes 1x1+0+0\npage = 5, grid 3x3",
             "garbage ]]] {{{ page = = ,,,",
         )
         for (source in sources) {
@@ -172,14 +172,14 @@ class TileWriterTest {
 
     @Test
     fun `describe reports new removed and resized pages and moved tiles`() {
-        val old = parse("page = 1, grid 4x4, clock 2x2+0+0\npage = 2, grid 2x2, notes 1x1+0+0\npage = 4, grid 2x2, battery 1x1+0+0")
-        val new = parse("page = 1, grid 4x4, clock 2x2+2+2\npage = 2, grid 3x3, notes 1x1+0+0\npage = 3, grid 2x2")
+        val old = parse("page = 1, grid 4x4, clock 2x2+0+0\npage = 2, grid 3x3, notes 1x1+0+0\npage = 4, grid 3x3, battery 1x1+0+0")
+        val new = parse("page = 1, grid 4x4, clock 2x2+2+2\npage = 2, grid 4x4, notes 1x1+0+0\npage = 3, grid 3x3")
 
         val lines = TileWriter.describe(old, new)
 
         assertThat(lines).containsExactly(
             "Page 1: moves tiles",
-            "Page 2: grid 2x2 -> 3x3",
+            "Page 2: grid 3x3 -> 4x4",
             "Page 3: new empty page",
             "Page 4: removed",
         ).inOrder()
@@ -205,7 +205,7 @@ class TileWriterTest {
 
     @Test
     fun `describe returns at most 12 lines`() {
-        val manyPages = (1..8).joinToString("\n") { "page = $it, grid 2x2, clock 1x1+0+0" }
+        val manyPages = (1..8).joinToString("\n") { "page = $it, grid 3x3, clock 1x1+0+0" }
         val new = parse("general { gaps = 1  rounding = 1  border = none  border_size = 1  blur = on }\n$manyPages")
 
         val lines = TileWriter.describe(null, new)
