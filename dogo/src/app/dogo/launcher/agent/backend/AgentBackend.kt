@@ -7,6 +7,12 @@ package app.dogo.launcher.agent.backend
 
 import kotlin.coroutines.cancellation.CancellationException
 
+/**
+ * Per-request knobs. [effort] is "low", "medium" or "high", or null to leave
+ * the server's default alone.
+ */
+data class ReplyOptions(val effort: String? = null)
+
 /** One turn of the setup conversation. */
 data class ChatTurn(val role: Role, val text: String) {
     enum class Role { USER, ASSISTANT }
@@ -26,7 +32,7 @@ interface AgentBackend {
     val label: String
 
     /** [turns] ends with the user's latest message. */
-    suspend fun reply(system: String, turns: List<ChatTurn>): Result<String>
+    suspend fun reply(system: String, turns: List<ChatTurn>, options: ReplyOptions = ReplyOptions()): Result<String>
 }
 
 /** A backend that can enumerate the models its server offers. */

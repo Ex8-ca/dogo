@@ -13,9 +13,10 @@ import org.json.JSONObject
  * Talks to any OpenAI-compatible server: Hermes Agent's API server, OpenRouter,
  * Groq, Ollama, LM Studio, llama-server and friends.
  *
- * Only the fields every one of them accepts are sent. Optional knobs such as
- * reasoning effort are left out, because unknown fields are a 400 on some
- * servers.
+ * Only the fields every one of them accepts are sent, plus reasoning effort
+ * in the form each server is known to understand: Hermes reads
+ * `model_options.reasoning.effort`, OpenRouter reads `reasoning.effort`.
+ * Other servers get nothing extra, because unknown fields are a 400 on some.
  */
 class OpenAiCompatibleBackend(
     private val agent: ResolvedAgent,
@@ -30,7 +31,7 @@ class OpenAiCompatibleBackend(
         if (agent.preset.id == AgentCatalog.OPENROUTER.id) put("X-Title", "Dogo")
     }
 
-    override suspend fun reply(system: String, turns: List<ChatTurn>): Result<String> = resultOf {
+    override suspend fun reply(system: String, turns: List<ChatTurn>, options: ReplyOptions): Result<String> = resultOf {
         val messages = JSONArray().put(JSONObject().put("role", "system").put("content", system))
         turns.forEach { turn ->
             messages.put(
@@ -43,6 +44,13 @@ class OpenAiCompatibleBackend(
             .put("model", agent.model)
             .put("messages", messages)
             .put("stream", false)
+        options.effort?.let { effort ->
+            val reasoning = JSONObject().put("effort", effort)
+            when (agent.preset.id) {
+                AgentCatalog.HERMES.id -> body.put("model_options", JSONObject().put("reasoning", reasoning))
+                AgentCatalog.OPENROUTER.id -> body.put("reasoning", reasoning)
+            }
+        }
 
         val response = RemoteHttp.postJson(client, "${agent.baseUrl}/chat/completions", headers(), body)
         val message = response.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
@@ -83,7 +91,7 @@ class AnthropicBackend(
         "anthropic-version" to API_VERSION,
     )
 
-    override suspend fun reply(system: String, turns: List<ChatTurn>): Result<String> = resultOf {
+    override suspend fun reply(system: String, turns: List<ChatTurn>, options: ReplyOptions): Result<String> = resultOf {
         val messages = JSONArray()
         turns.forEach { turn ->
             messages.put(

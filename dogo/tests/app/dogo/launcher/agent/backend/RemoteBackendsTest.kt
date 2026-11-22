@@ -192,6 +192,25 @@ class RemoteBackendsTest {
     }
 
     @Test
+    fun `thinking effort is sent the way each server understands it`() = runBlocking {
+        routes["/v1/chat/completions"] = 200 to """{"choices":[{"message":{"content":"ok"}}]}"""
+        val high = ReplyOptions(effort = "high")
+
+        OpenAiCompatibleBackend(agent(AgentCatalog.HERMES), client).reply("s", turns, high).getOrThrow()
+        OpenAiCompatibleBackend(agent(AgentCatalog.OPENROUTER), client).reply("s", turns, high).getOrThrow()
+        OpenAiCompatibleBackend(agent(AgentCatalog.CUSTOM), client).reply("s", turns, high).getOrThrow()
+        OpenAiCompatibleBackend(agent(AgentCatalog.HERMES), client).reply("s", turns).getOrThrow()
+
+        val (hermes, openrouter, custom, hermesDefault) = requests.map { JSONObject(it.body) }
+        assertThat(hermes.getJSONObject("model_options").getJSONObject("reasoning").getString("effort")).isEqualTo("high")
+        assertThat(openrouter.getJSONObject("reasoning").getString("effort")).isEqualTo("high")
+        // Unknown servers get nothing extra: unknown fields are a 400 on some.
+        assertThat(custom.has("reasoning")).isFalse()
+        assertThat(custom.has("model_options")).isFalse()
+        assertThat(hermesDefault.has("model_options")).isFalse()
+    }
+
+    @Test
     fun `factory picks the backend matching the agent kind`() {
         assertThat(AgentBackends.remote(agent(AgentCatalog.HERMES))).isInstanceOf(OpenAiCompatibleBackend::class.java)
         assertThat(AgentBackends.remote(agent(AgentCatalog.ANTHROPIC))).isInstanceOf(AnthropicBackend::class.java)
