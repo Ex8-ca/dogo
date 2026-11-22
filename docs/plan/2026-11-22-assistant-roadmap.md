@@ -576,6 +576,39 @@ Two parts, in this order:
    background work. Tiles that show notifications or other apps' text follow the alert
    rules and stay off for Hermes until it has a tool-free route.
 
+### Phase 7 design: a tile file the agent edits (decided 2026-11-22)
+
+Hyprtile keeps its whole look in one text file, `hyprtile.conf`, in Hyprland's syntax.
+It reloads live on save. Two things in it fit Dogo well. A page is one line,
+`workspace = 1, grid 4x8, clock 4x2+0+0, weather 4x3+0+2`, where each box is
+width x height + column + row. And a line that does not read is not used: the file
+shows "bad value for X" with the reason and the old value stays. Colours avoid `#`
+because `#` starts a comment.
+
+Dogo gets its own file, `dogo-tiles.conf`, kept on the phone, not a copy of
+Hyprtile's syntax (its tiles are private built-in windows, so a file would not carry
+over). The agent writes or edits this text; Dogo checks it and shows it as an approval
+card with a preview, like any other change. Why a file suits an agent:
+
+- It is data. Nothing in it runs. The worst a bad file can do is look wrong.
+- Every line is checked on its own against a fixed list of tile kinds, sizes and keys.
+  Unknown or out-of-range lines are dropped with a plain reason, and the rest still
+  applies. The previous good file is kept so Undo is one tap.
+- The user can read it and edit it by hand, and the agent can explain a change as a diff.
+- `add_widget` already takes `size: "4x2"` and a page, so the grid idea is already how
+  Dogo places Android widgets.
+
+Sketch (not final):
+
+    page = 1, grid 4x8, clock 4x2+0+0, weather 4x3+0+2, widget:com.example/.Cal 4x3+0+5
+    general { gaps = 8  rounding = 18  border = accent }
+    tile mine { kind = text  source = battery  every = 15m }
+
+Order: (1) parser and validator with tests, no UI; (2) draw gapped, rounded, framed
+slots around real widgets and apply the file; (3) agent action `write_tiles` plus the
+preview card; (4) built-in tile kinds and approved data sources. About a week for 1
+to 3, then 4 as time allows.
+
 ## Order and size
 
 | Phase | What | Size |
