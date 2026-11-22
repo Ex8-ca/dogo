@@ -30,6 +30,12 @@ the Lawnchair project or Google. Please report Dogo bugs
 
 ## What Dogo adds
 
+- **The Dogo Ring.** Touch and hold anywhere on the home screen and a radial
+  menu opens under your thumb (inspired by
+  [Tenkai Launcher](https://tenkailauncher.com/)'s pies). Slide to a group,
+  then to an app, and let go, all in one swipe; or release in the middle and
+  tap. Apps are grouped automatically, or ask Dogo to arrange them. Three
+  styles (Glow, Radar, Minimal) that take their colour from your theme.
 - **Conversational setup.** A chat where the agent proposes concrete changes:
   Dogo's theme, the phone's dark mode, wallpaper, folders, home-screen apps,
   hiding apps, animation speed. Each change shows up as a card with **Apply**.
