@@ -14,6 +14,13 @@
             android:exported="true"
             android:multiprocess="false"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <!-- Debug-only test trigger for phone use. DUMP can't be held by apps, so only adb can call it;
+             the code also does nothing outside debug builds. -->
+        <receiver
+            android:name="app.dogo.launcher.screenuse.ScreenUseDebugReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
     </application>
 
     <!-- Talking to Dogo (OpenAI Realtime voice). Asked for only when the user taps the mic. -->

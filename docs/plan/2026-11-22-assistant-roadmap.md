@@ -530,12 +530,51 @@ phone), the agent-facing planner, the task approval card, the on-screen indicato
 with Stop, and a settings entry. The planner must refuse any agent that is not on
 the tool-free list (`ToolFreePolicy`), because screen text goes to it.
 
+First device test (2026-11-22, Pixel 2 XL, Calculator, scripted by an adb-only debug
+trigger, no agent involved): with the service on, the driver read the screen (35
+elements, clean labels), pressed 7, +, 8, = and the display showed 15. With the service
+off, a run failed with "turn on the accessibility service" and did nothing. Dogo's own
+package, and a password-manager package, were refused before anything was opened. A
+button that did not exist ended the run without guessing. The service was switched on
+with adb for the test and switched off again afterwards; the user's phone setting is
+back to off.
+
+Other ways to get the same reach, by access tier:
+- **adb through Termux** (Android 11+, Wi-Fi only): Termux's `android-tools` pairs once
+  with the phone's own Wireless debugging, then runs `adb shell input`, `uiautomator
+  dump` and `am` on the same phone. Needs a manual six-digit pairing in split-screen, the
+  connect port changes at every reboot, and Android may stop Termux in the background.
+  It is the Shizuku/root tier by another route, so it must use a fixed list of allowed
+  commands, never free text from an agent, and never a tool-equipped agent.
+- **Accessibility service** (above) stays the main route: no Wi-Fi, no pairing.
+
 Slices: (1) element-list snapshot, redaction and the rules as pure code with
 tests; (2) service configuration and the tap/type/scroll actions; (3) the agent
 protocol (read screen, propose step) and the task approval card; (4) indicator and
 Stop; (5) try it on the Pixel with a harmless app (Clock or Calculator) before any
 other. About 1 to 1.5 weeks. Depends on the safe agent route in Phase 2 for any
 text read off the screen.
+
+## Phase 7: AI-made tiles for the home screen (idea, not started)
+
+Requested 2026-11-22 after reading the Hyprtile user guide (a closed, paid Play Store
+launcher; only its guide is public, so it is a design reference, nothing to copy).
+Hyprtile shows widgets as tiled "windows" with gaps, rounded corners, glow borders, a
+status bar, 78 one-tap looks and a live-reloading config. Its tiles are mostly built-in
+mini apps. It has no AI.
+
+Two parts, in this order:
+1. **Layout tiles (about a week).** The agent describes a tiled arrangement ("clock
+   left, weather top right") and Dogo places real Android widgets in gapped, rounded
+   slots, framed in the wallpaper colours. Builds on `add_widget`, `style_home` and the
+   wallpaper palette. A launcher cannot restyle what another app draws inside its
+   widget; it can size it, place it and draw the frame around the slot.
+2. **AI-written tiles (about two weeks).** A tile is data, not code: a small description
+   built from a fixed set of blocks (text, number, list, bar, icon) filled from sources
+   the user approves one by one (battery, calendar, a Hermes answer on a timer). No
+   AI-written code ever runs. Refresh is on a schedule, because Android limits
+   background work. Tiles that show notifications or other apps' text follow the alert
+   rules and stay off for Hermes until it has a tool-free route.
 
 ## Order and size
 
