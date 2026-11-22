@@ -119,6 +119,7 @@ fun DogoSetupScreen(
     val call by viewModel.call.collectAsStateWithLifecycle()
     var input by remember { mutableStateOf("") }
     var callExpanded by remember { mutableStateOf(false) }
+    var renameOpen by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -180,6 +181,22 @@ fun DogoSetupScreen(
         }
     }
 
+    if (renameOpen) {
+        var name by remember { mutableStateOf(ConversationCodec.displayTitle(state.title, state.messages)) }
+        AlertDialog(
+            onDismissRequest = { renameOpen = false },
+            title = { Text("Rename conversation") },
+            text = { OutlinedTextField(value = name, onValueChange = { name = it.take(80) }, singleLine = true) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.renameConversation(state.conversationId, name)
+                    renameOpen = false
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { renameOpen = false }) { Text("Cancel") } },
+        )
+    }
+
     ModalNavigationDrawer(
         drawerState = drawer,
         modifier = modifier,
@@ -196,6 +213,7 @@ fun DogoSetupScreen(
                     scope.launch { drawer.close() }
                 },
                 onDelete = viewModel::deleteConversation,
+                onRename = viewModel::renameConversation,
             )
         },
     ) {
@@ -209,9 +227,9 @@ fun DogoSetupScreen(
                             }
                         },
                         title = {
-                            Column {
+                            Column(Modifier.clickable(enabled = state.messages.isNotEmpty()) { renameOpen = true }) {
                                 Text(
-                                    if (state.messages.isEmpty()) "Dogo" else ConversationCodec.titleOf(state.messages),
+                                    if (state.messages.isEmpty()) "Dogo" else ConversationCodec.displayTitle(state.title, state.messages),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -450,8 +468,11 @@ private fun HistoryDrawer(
     onNew: () -> Unit,
     onOpen: (String) -> Unit,
     onDelete: (String) -> Unit,
+    onRename: (String, String) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
+    var menuFor by remember { mutableStateOf<ConversationSummary?>(null) }
+    var renaming by remember { mutableStateOf<ConversationSummary?>(null) }
     var searching by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf<ConversationSummary?>(null) }
     val now = System.currentTimeMillis()
@@ -513,7 +534,7 @@ private fun HistoryDrawer(
                             .padding(horizontal = 8.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .background(if (open) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                            .combinedClickable(onClick = { onOpen(c.id) }, onLongClick = { confirmDelete = c })
+                            .combinedClickable(onClick = { onOpen(c.id) }, onLongClick = { menuFor = c })
                             .padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -542,6 +563,47 @@ private fun HistoryDrawer(
                 }
             }
         }
+    }
+    menuFor?.let { c ->
+        AlertDialog(
+            onDismissRequest = { menuFor = null },
+            title = { Text(c.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+            text = {
+                Column {
+                    TextButton(onClick = {
+                        renaming = c
+                        menuFor = null
+                    }) { Text("Rename") }
+                    TextButton(onClick = {
+                        confirmDelete = c
+                        menuFor = null
+                    }) { Text("Delete") }
+                }
+            },
+            confirmButton = { TextButton(onClick = { menuFor = null }) { Text("Close") } },
+        )
+    }
+    renaming?.let { c ->
+        var name by remember(c.id) { mutableStateOf(c.title) }
+        AlertDialog(
+            onDismissRequest = { renaming = null },
+            title = { Text("Rename conversation") },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it.take(80) },
+                    singleLine = true,
+                    supportingText = { if (c.named) Text("Leave it empty to use the first message again.") },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onRename(c.id, name)
+                    renaming = null
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } },
+        )
     }
     confirmDelete?.let { c ->
         AlertDialog(

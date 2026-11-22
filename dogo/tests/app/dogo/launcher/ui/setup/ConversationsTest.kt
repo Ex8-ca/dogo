@@ -148,4 +148,41 @@ class ConversationsTest {
     fun `ids can't reach outside the folder`() {
         ConversationStore(Files.createTempDirectory("convs").toFile()).load("../shared_prefs/x")
     }
+
+    @Test
+    fun `a chosen name wins over the first message, survives saving, and is searchable`() {
+        val named = sample.copy(title = "Hostname check")
+        val back = ConversationCodec.fromJson(JSONObject(ConversationCodec.toJson(named).toString()))
+        assertThat(back.title).isEqualTo("Hostname check")
+        val summary = ConversationCodec.summaryOf(back)
+        assertThat(summary.title).isEqualTo("Hostname check")
+        assertThat(summary.named).isTrue()
+        assertThat(summary.matches("hostname check")).isTrue()
+        // No chosen name: the first message is used and nothing is stored as custom.
+        val plain = ConversationCodec.fromJson(JSONObject(ConversationCodec.toJson(sample).toString()))
+        assertThat(plain.title).isNull()
+        assertThat(ConversationCodec.summaryOf(plain).named).isFalse()
+    }
+
+    @Test
+    fun `model titles are cleaned up, and unusable ones are dropped`() {
+        assertThat(TitleMaker.clean("\"Setting up a dark home screen.\"")).isEqualTo("Setting up a dark home screen")
+        assertThat(TitleMaker.clean("Title: hostname of Hermes")).isEqualTo("Hostname of Hermes")
+        assertThat(TitleMaker.clean("\n\n**Clock widget setup**\nSecond line ignored")).isEqualTo("Clock widget setup")
+        assertThat(TitleMaker.clean("")).isNull()
+        assertThat(TitleMaker.clean("Sorry, I can't help with that")).isNull()
+        assertThat(TitleMaker.clean("x".repeat(80))).isNull()
+        assertThat(TitleMaker.clean("a b c d e f g h i j k")).isNull()
+    }
+
+    @Test
+    fun `the naming request holds the first exchange without photos or JSON`() {
+        val turns = TitleMaker.turns(sample.messages)
+        assertThat(turns).hasSize(1)
+        val text = turns.single().text
+        assertThat(text).contains("User: what's the hostname")
+        assertThat(text).contains("Assistant: It's ai5080.")
+        assertThat(text).doesNotContain("Asked Hermes")
+        assertThat(text.length).isLessThan(1_800)
+    }
 }

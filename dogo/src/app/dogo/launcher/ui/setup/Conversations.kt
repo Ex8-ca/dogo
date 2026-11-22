@@ -27,6 +27,8 @@ data class Conversation(
     val updatedAt: Long,
     /** Hermes's own session for this conversation, so a resumed call keeps its memory. */
     val hermesSession: String? = null,
+    /** A name from the user or the model. Null means "work it out from the first message". */
+    val title: String? = null,
 )
 
 /** What the history list shows for a conversation. */
@@ -37,6 +39,8 @@ data class ConversationSummary(
     val updatedAt: Long,
     val messageCount: Int,
     val hasVoice: Boolean,
+    /** The title was chosen (by the user or the model), not worked out from the first message. */
+    val named: Boolean = false,
     /** Lower-case text of the whole conversation, for search. */
     val searchText: String,
 ) {
@@ -55,8 +59,12 @@ object ConversationCodec {
         .put("id", c.id)
         .put("created", c.createdAt)
         .put("updated", c.updatedAt)
-        .put("title", titleOf(c.messages))
-        .apply { c.hermesSession?.let { put("hermes_session", it) } }
+        .put("title", displayTitle(c.title, c.messages))
+        .apply {
+            c.hermesSession?.let { put("hermes_session", it) }
+            // "title" above is only for people reading the file; this is the one that counts.
+            c.title?.let { put("custom_title", it) }
+        }
         .put("messages", JSONArray().apply { c.messages.forEach { put(messageJson(it)) } })
 
     fun fromJson(json: JSONObject): Conversation {
@@ -68,6 +76,7 @@ object ConversationCodec {
             createdAt = json.optLong("created"),
             updatedAt = json.optLong("updated"),
             hermesSession = json.optString("hermes_session").ifBlank { null },
+            title = json.optString("custom_title").ifBlank { null },
         )
     }
 
@@ -130,6 +139,9 @@ object ConversationCodec {
         return Proposal(o.optLong("id"), action, state)
     }
 
+    /** A chosen name if there is one, else the first thing asked. */
+    fun displayTitle(custom: String?, messages: List<Message>): String = custom?.takeIf { it.isNotBlank() } ?: titleOf(messages)
+
     /** The first thing the user asked, shortened; that's how people remember a chat. */
     fun titleOf(messages: List<Message>): String {
         val first = messages.firstOrNull { it.fromUser && !it.note } ?: return "New chat"
@@ -149,12 +161,13 @@ object ConversationCodec {
         val preview = last?.let { (if (it.fromUser) "You: " else "") + stripActionJson(it.text).replace(Regex("\\s+"), " ") }.orEmpty().take(90)
         return ConversationSummary(
             id = c.id,
-            title = titleOf(c.messages),
+            title = displayTitle(c.title, c.messages),
+            named = !c.title.isNullOrBlank(),
             preview = preview,
             updatedAt = c.updatedAt,
             messageCount = shown.size,
             hasVoice = c.messages.any { it.spoken },
-            searchText = c.messages.joinToString(" ") { stripActionJson(it.text) }.lowercase().take(8_000),
+            searchText = (displayTitle(c.title, c.messages) + " " + c.messages.joinToString(" ") { stripActionJson(it.text) }).lowercase().take(8_000),
         )
     }
 
@@ -254,5 +267,33 @@ class ConversationStore(private val dir: File) {
 
     companion object {
         fun newId(now: Long = System.currentTimeMillis()): String = "c$now-${(1000..9999).random()}"
+    }
+}
+
+/**
+ * Asks the agent for a short name for a conversation, and cleans up what
+ * comes back. Models like to add quotes, "Title:" and full stops.
+ */
+object TitleMaker {
+    const val SYSTEM = "You name conversations. Reply with only a title of 3 to 5 words that says what the " +
+        "conversation is about. No quotes, no full stop, no prefix. Use the user's language."
+
+    /** The first exchange is enough; anything longer only costs tokens. */
+    fun turns(messages: List<Message>): List<ChatTurn> {
+        val shown = ConversationCodec.turnsOf(messages).take(4).map { it.copy(text = stripActionJson(it.text).take(400), images = emptyList()) }
+        val transcript = shown.joinToString("\n") { (if (it.role == ChatTurn.Role.USER) "User: " else "Assistant: ") + it.text.replace(Regex("\\s+"), " ") }
+        return listOf(ChatTurn(ChatTurn.Role.USER, "Name this conversation:\n\n$transcript"))
+    }
+
+    /** Null when the reply isn't usable as a name; the caller keeps the first-message title. */
+    fun clean(raw: String): String? {
+        var t = raw.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: return null
+        t = t.replace(Regex("^(?i)(title|name)\\s*[:：-]\\s*"), "")
+        t = t.trim().trim('"', '\'', '“', '”', '‘', '’', '*', '#', '`', ' ').trimEnd('.', '。', '!', '?').trim()
+        if (t.isEmpty() || t.length > 60) return null
+        if (t.split(Regex("\\s+")).size > 9) return null
+        // A refusal or an apology is not a name.
+        if (Regex("^(?i)(sorry|i can.?t|i cannot|i'm sorry|as an ai)").containsMatchIn(t)) return null
+        return t.replaceFirstChar { it.uppercase() }
     }
 }

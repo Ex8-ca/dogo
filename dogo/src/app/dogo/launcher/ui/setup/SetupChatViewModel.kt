@@ -84,6 +84,7 @@ class SetupChatViewModel(
 
     data class UiState(
         val conversationId: String = "",
+        val title: String? = null,
         val messages: List<Message> = emptyList(),
         val busy: Boolean = false,
         val modelReady: Boolean = false,
@@ -235,6 +236,7 @@ class SetupChatViewModel(
                     val proposals = Assistant.proposalsFor(ActionExecutor.parseActions(reply))
                     Assistant.add(Message(reply, fromUser = false, proposals = proposals))
                     if (!options.requireConfirmation) autoApply(proposals)
+                    nameConversation()
                 }
                 .onFailure { e ->
                     // Keep what the user typed out of the history so a retry doesn't send it twice.
@@ -258,6 +260,15 @@ class SetupChatViewModel(
     fun recheckBlocked() = Assistant.recheckBlocked()
 
     fun newConversation() = Assistant.newConversation()
+
+    fun renameConversation(id: String, title: String) = Assistant.rename(id, title)
+
+    /** A short name from the agent. Skipped for the on-device model, which is slow and busy enough. */
+    private fun nameConversation() {
+        val active = backend ?: return
+        if (_uiState.value.options.isOnDevice) return
+        Assistant.nameIfNeeded { system, turns -> active.reply(system, turns, ReplyOptions(effort = "low")).getOrNull() }
+    }
 
     fun openConversation(id: String) = Assistant.open(id)
 

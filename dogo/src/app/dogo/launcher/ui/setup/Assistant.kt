@@ -57,6 +57,8 @@ object Assistant {
     private var createdAt = 0L
     private var updatedAt = 0L
     private var hermesSession: String? = null
+    private var title: String? = null
+    private var titleAsked = false
 
     @Volatile private var nextProposalId = 0L
     private var saveJob: Job? = null
@@ -123,8 +125,10 @@ object Assistant {
         createdAt = c.createdAt
         updatedAt = c.updatedAt
         hermesSession = c.hermesSession
+        title = c.title
+        titleAsked = false
         nextProposalId = (c.messages.flatMap { it.proposals }.maxOfOrNull { it.id } ?: -1L) + 1
-        state.update { it.copy(conversationId = c.id, messages = c.messages, status = null) }
+        state.update { it.copy(conversationId = c.id, messages = c.messages, title = c.title, status = null) }
         recheckBlocked()
     }
 
@@ -146,8 +150,10 @@ object Assistant {
         createdAt = now
         updatedAt = now
         hermesSession = null
+        title = null
+        titleAsked = false
         nextProposalId = 0
-        state.update { it.copy(conversationId = ConversationStore.newId(now), messages = emptyList(), status = null) }
+        state.update { it.copy(conversationId = ConversationStore.newId(now), messages = emptyList(), title = null, status = null) }
     }
 
     fun add(message: Message) {
@@ -166,6 +172,46 @@ object Assistant {
     fun turns(): List<ChatTurn> = ConversationCodec.turnsOf(state.value.messages)
 
     fun hermesSession(): String? = hermesSession
+
+    /**
+     * Gives a conversation a name. Blank clears it, so the first message is used again.
+     * Works on the open conversation or any saved one.
+     */
+    fun rename(id: String, newTitle: String) {
+        val clean = newTitle.trim().take(80).ifBlank { null }
+        if (id == state.value.conversationId) {
+            title = clean
+            titleAsked = clean != null
+            state.update { it.copy(title = clean) }
+            persistSoon()
+            return
+        }
+        scope.launch {
+            withContext(NonCancellable + Dispatchers.IO) { store.load(id)?.let { store.save(it.copy(title = clean)) } }
+            refreshHistory()
+        }
+    }
+
+    /**
+     * After the first answer, asks [ask] for a short name. A name the user chose is
+     * never replaced, and a failed or odd reply leaves the first-message title.
+     */
+    fun nameIfNeeded(ask: suspend (system: String, turns: List<app.dogo.launcher.agent.backend.ChatTurn>) -> String?) {
+        val s = state.value
+        if (title != null || titleAsked || s.messages.count { !it.note } < 2) return
+        titleAsked = true
+        val id = s.conversationId
+        val turns = TitleMaker.turns(s.messages)
+        scope.launch {
+            val named = runCatching { ask(TitleMaker.SYSTEM, turns) }.getOrNull()?.let(TitleMaker::clean) ?: return@launch
+            // The user may have switched conversations or renamed it while this ran.
+            if (state.value.conversationId == id && title == null) {
+                title = named
+                state.update { it.copy(title = named) }
+                persistSoon()
+            }
+        }
+    }
 
     fun rememberHermesSession(id: String?) {
         if (id == null || id == hermesSession) return
@@ -272,7 +318,7 @@ object Assistant {
     private fun snapshot(): Conversation? {
         val s = state.value
         if (s.messages.isEmpty()) return null
-        return Conversation(s.conversationId, s.messages, createdAt, updatedAt, hermesSession)
+        return Conversation(s.conversationId, s.messages, createdAt, updatedAt, hermesSession, title)
     }
 
     private fun persistSoon() {
