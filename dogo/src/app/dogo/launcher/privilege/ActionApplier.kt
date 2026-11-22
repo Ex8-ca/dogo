@@ -15,7 +15,7 @@ import android.os.Process
 import android.provider.Settings
 import androidx.core.graphics.toColorInt
 import app.dogo.launcher.agent.Action
-import app.lawnchair.deck.AddFoldersWithItemsTask
+import app.dogo.launcher.plugins.PluginActionRunner
 import app.lawnchair.preferences.PreferenceManager
 import app.lawnchair.preferences2.PreferenceManager2
 import app.lawnchair.ui.preferences.components.ThemeChoice
@@ -29,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONObject
 
 /**
  * Carries out an approved [Action].
@@ -53,6 +54,13 @@ class ActionApplier(
 
                 PrivilegePlanner.Plan.InLauncher -> {
                     val message = applyInLauncher(action)
+                    Outcome(action, true, message, Tier.NONE)
+                }
+
+                is PrivilegePlanner.Plan.ViaPlugin -> {
+                    action as Action.Plugin
+                    val plugin = access.enabledPlugins().first { it.manifest.id == plan.pluginId }
+                    val message = PluginActionRunner(context).run(plugin, action.name, JSONObject(action.paramsJson)).getOrThrow()
                     Outcome(action, true, message, Tier.NONE)
                 }
 
@@ -152,11 +160,11 @@ class ActionApplier(
         // The model only loads once Dogo's home screen has run. Before that the
         // task would be dropped without a word, so say so instead.
         check(model.isModelLoaded()) { NEEDS_HOME_SCREEN }
-        val done = CompletableDeferred<Unit>()
+        val done = CompletableDeferred<Result<Int>>()
         withContext(Dispatchers.Main) {
-            model.enqueueModelUpdateTask(AddFoldersWithItemsTask(listOf(folder)) { done.complete(Unit) })
+            model.enqueueModelUpdateTask(AddFolderTask(folder) { done.complete(it) })
         }
-        withTimeoutOrNull(FOLDER_TIMEOUT_MS) { done.await() } ?: error(NEEDS_HOME_SCREEN)
+        (withTimeoutOrNull(FOLDER_TIMEOUT_MS) { done.await() } ?: error(NEEDS_HOME_SCREEN)).getOrThrow()
         val added = folder.getContents().size
         return "Created folder \"${action.name}\" with $added app${if (added == 1) "" else "s"}." +
             if (missing.isNotEmpty()) " Not installed: ${missing.joinToString()}." else ""
