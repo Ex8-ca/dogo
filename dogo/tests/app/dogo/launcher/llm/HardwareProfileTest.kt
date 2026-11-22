@@ -79,7 +79,7 @@ class HardwareProfileTest {
     @Test
     fun `rationale explains the choice`() {
         assertThat(recommend(ramGb = 12, freeStorageGb = 20).rationale).isNotEmpty()
-        assertThat(recommend(ramGb = 2, freeStorageGb = 8).rationale).contains("cloud")
+        assertThat(recommend(ramGb = 2, freeStorageGb = 8).rationale).contains("off-phone agent")
     }
 
     @Test

@@ -12,11 +12,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -33,21 +38,33 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.dogo.launcher.agent.AgentOptions
+import app.dogo.launcher.agent.backend.AgentCatalog
+import app.dogo.launcher.agent.backend.AgentConfig
+import app.dogo.launcher.agent.backend.AgentPreset
+import app.dogo.launcher.agent.backend.KeyRequirement
+import app.dogo.launcher.agent.backend.ResolvedAgent
 import app.dogo.launcher.llm.ModelCatalog
 
 /**
- * Lets the user choose which model Dogo uses, where it runs, and what the
- * agent is allowed to change.
+ * Lets the user choose which agent Dogo talks to, which on-device model it
+ * uses, and what the agent is allowed to change.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,7 +79,10 @@ fun DogoOptionsScreen(
         topBar = { TopAppBar(title = { Text("Dogo Options") }) },
     ) { padding ->
         Column(
-            modifier = Modifier.padding(padding).padding(horizontal = 16.dp),
+            modifier = Modifier
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             state.recommendation?.let { rec ->
@@ -77,47 +97,48 @@ fun DogoOptionsScreen(
                 IssueCard(issue)
             }
 
-            SectionLabel("Where it runs")
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                val runtimes = AgentOptions.Runtime.entries
-                runtimes.forEachIndexed { index, runtime ->
-                    SegmentedButton(
-                        selected = state.options.runtime == runtime,
-                        onClick = { viewModel.setRuntime(runtime) },
-                        shape = SegmentedButtonDefaults.itemShape(index, runtimes.size),
-                    ) {
-                        Text(if (runtime == AgentOptions.Runtime.ON_DEVICE) "On device" else "Cloud")
-                    }
-                }
+            SectionLabel("Agent")
+            val noLocalModel = state.recommendation?.primary == null
+            AgentCatalog.all.forEach { preset ->
+                AgentRow(
+                    preset = preset,
+                    selected = state.options.agentId == preset.id,
+                    onSelect = { viewModel.selectAgent(preset) },
+                    note = if (preset == AgentCatalog.ON_DEVICE && noLocalModel) "not available on this phone" else null,
+                )
             }
 
-            if (state.options.runtime == AgentOptions.Runtime.CLOUD) {
+            if (!state.options.isOnDevice) {
+                RemoteAgentCard(
+                    preset = state.options.agent,
+                    config = state.options.configFor(state.options.agent),
+                    resolved = state.options.resolvedAgent(),
+                    connection = state.connection,
+                    onEdit = viewModel::updateAgentConfig,
+                    onTest = viewModel::testConnection,
+                )
+            }
+
+            if (state.options.isOnDevice) {
+                SectionLabel("Model")
                 Text(
-                    "Cloud mode needs a network connection and sends your requests " +
-                        "off the phone.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    "Automatically follow this phone" +
+                        if (state.options.modelId == null) " (currently selected)" else "",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.setModel(null) }
+                        .padding(vertical = 8.dp),
                 )
-            }
-
-            SectionLabel("Model")
-            Text(
-                "Automatically follow this phone" +
-                    if (state.options.modelId == null) " (currently selected)" else "",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { viewModel.setModel(null) }
-                    .padding(vertical = 8.dp),
-            )
-            state.models.forEach { row ->
-                ModelCard(
-                    row = row,
-                    selected = state.options.modelId == row.variant.id,
-                    onSelect = { viewModel.setModel(row.variant) },
-                    onDownload = { viewModel.download(row.variant) },
-                    onDelete = { viewModel.delete(row.variant) },
-                )
+                state.models.forEach { row ->
+                    ModelCard(
+                        row = row,
+                        selected = state.options.modelId == row.variant.id,
+                        onSelect = { viewModel.setModel(row.variant) },
+                        onDownload = { viewModel.download(row.variant) },
+                        onDelete = { viewModel.delete(row.variant) },
+                    )
+                }
             }
 
             SectionLabel("Thinking level")
@@ -289,3 +310,154 @@ private fun ModelCard(
         }
     }
 }
+
+@Composable
+private fun AgentRow(preset: AgentPreset, selected: Boolean, onSelect: () -> Unit, note: String? = null) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelect)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onSelect)
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(preset.displayName, style = MaterialTheme.typography.bodyLarge)
+                if (preset.leavesDevice) {
+                    Text(
+                        "  off-phone",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                note?.let {
+                    Text(
+                        "  $it",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            Text(
+                preset.blurb,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RemoteAgentCard(
+    preset: AgentPreset,
+    config: AgentConfig,
+    resolved: ResolvedAgent,
+    connection: DogoOptionsViewModel.ConnectionCheck,
+    onEdit: ((AgentConfig) -> AgentConfig) -> Unit,
+    onTest: () -> Unit,
+) {
+    var showKey by remember(preset.id) { mutableStateOf(false) }
+    Card(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Column(
+            Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("${preset.displayName} connection", style = MaterialTheme.typography.labelLarge)
+
+            OutlinedTextField(
+                value = config.baseUrl ?: preset.defaultBaseUrl,
+                onValueChange = { value -> onEdit { it.copy(baseUrl = value) } },
+                label = { Text("Address") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = config.model ?: preset.defaultModel,
+                onValueChange = { value -> onEdit { it.copy(model = value) } },
+                label = { Text("Model") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (preset.key != KeyRequirement.NONE) {
+                OutlinedTextField(
+                    value = config.apiKey.orEmpty(),
+                    onValueChange = { value -> onEdit { it.copy(apiKey = value) } },
+                    label = {
+                        Text(if (preset.key == KeyRequirement.REQUIRED) "API key" else "API key (optional)")
+                    },
+                    supportingText = preset.keyHint.takeIf { it.isNotEmpty() }?.let { hint -> { Text(hint) } },
+                    singleLine = true,
+                    visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    trailingIcon = {
+                        TextButton(onClick = { showKey = !showKey }) { Text(if (showKey) "Hide" else "Show") }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Text(
+                "Requests go to ${resolved.baseUrl.ifBlank { "(no address yet)" }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(
+                    onClick = onTest,
+                    enabled = connection !is DogoOptionsViewModel.ConnectionCheck.Running,
+                ) { Text("Test connection") }
+                if (connection is DogoOptionsViewModel.ConnectionCheck.Running) {
+                    CircularProgressIndicator(Modifier.padding(start = 12.dp).size(20.dp), strokeWidth = 2.dp)
+                }
+            }
+
+            when (connection) {
+                is DogoOptionsViewModel.ConnectionCheck.Ok -> {
+                    Text(
+                        "Connected. The agent replied: \"${connection.reply}\"",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    if (connection.models.isNotEmpty()) {
+                        Text("Models on this server (tap to use):", style = MaterialTheme.typography.bodySmall)
+                        connection.models.take(MAX_MODEL_CHOICES).forEach { id ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onEdit { it.copy(model = id) } }
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (id == resolved.model) {
+                                    Icon(Icons.Default.Check, null, Modifier.size(16.dp))
+                                }
+                                Text(
+                                    id,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(start = 6.dp),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                is DogoOptionsViewModel.ConnectionCheck.Failed -> Text(
+                    connection.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+
+                else -> Unit
+            }
+        }
+    }
+}
+
+private const val MAX_MODEL_CHOICES = 25

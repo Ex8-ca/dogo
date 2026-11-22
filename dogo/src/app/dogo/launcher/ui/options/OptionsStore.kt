@@ -8,6 +8,9 @@ package app.dogo.launcher.ui.options
 import android.content.Context
 import app.dogo.launcher.agent.AgentOptions
 import app.dogo.launcher.agent.AgentOptions.ActionType
+import app.dogo.launcher.agent.backend.AgentConfig
+import app.dogo.launcher.agent.backend.KeystoreSecretBox
+import app.dogo.launcher.agent.backend.SecretBox
 
 /**
  * Persists [AgentOptions].
@@ -16,8 +19,14 @@ import app.dogo.launcher.agent.AgentOptions.ActionType
  * because these options are Dogo's own and carry no migration history. Every
  * read is defensive: a corrupt or partial file falls back to defaults rather
  * than throwing, because this is read while the launcher is starting.
+ *
+ * Agent settings, which include API keys, are stored as one blob sealed with a
+ * Keystore key (see [KeystoreSecretBox]), never as plain text.
  */
-class OptionsStore(context: Context) {
+class OptionsStore(
+    context: Context,
+    private val secrets: SecretBox = KeystoreSecretBox(),
+) {
 
     private val prefs = context.applicationContext
         .getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -26,9 +35,10 @@ class OptionsStore(context: Context) {
         val defaults = AgentOptions()
         return try {
             AgentOptions(
-                runtime = runCatching {
-                    AgentOptions.Runtime.valueOf(prefs.getString(KEY_RUNTIME, null).orEmpty())
-                }.getOrDefault(defaults.runtime),
+                agentId = prefs.getString(KEY_AGENT, null) ?: defaults.agentId,
+                agentConfigs = prefs.getString(KEY_AGENT_CONFIGS, null)
+                    ?.let { sealed -> runCatching { secrets.open(sealed) }.getOrNull() }
+                    .let { AgentConfig.decode(it) },
                 modelId = prefs.getString(KEY_MODEL, null),
                 thinkingLevel = runCatching {
                     AgentOptions.ThinkingLevel.valueOf(
@@ -56,8 +66,11 @@ class OptionsStore(context: Context) {
     }
 
     fun save(options: AgentOptions) {
+        val sealedConfigs = runCatching { secrets.seal(AgentConfig.encode(options.agentConfigs)) }.getOrNull()
         prefs.edit()
-            .putString(KEY_RUNTIME, options.runtime.name)
+            .putString(KEY_AGENT, options.agentId)
+            .apply { if (sealedConfigs != null) putString(KEY_AGENT_CONFIGS, sealedConfigs) }
+            .remove(KEY_LEGACY_RUNTIME)
             .putString(KEY_MODEL, options.modelId)
             .putString(KEY_THINKING, options.thinkingLevel.name)
             .putStringSet(KEY_ACTIONS, options.allowedActions.map { it.name }.toSet())
@@ -67,7 +80,11 @@ class OptionsStore(context: Context) {
 
     companion object {
         private const val NAME = "dogo_agent_options"
-        private const val KEY_RUNTIME = "runtime"
+        private const val KEY_AGENT = "agent"
+        private const val KEY_AGENT_CONFIGS = "agent_configs_sealed"
+
+        /** Pre-agent-picker "ON_DEVICE"/"CLOUD" switch; CLOUD never had a backend. */
+        private const val KEY_LEGACY_RUNTIME = "runtime"
         private const val KEY_MODEL = "model"
         private const val KEY_THINKING = "thinking"
         private const val KEY_ACTIONS = "actions"

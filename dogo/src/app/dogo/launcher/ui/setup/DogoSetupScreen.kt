@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.dogo.launcher.agent.Action
@@ -62,6 +63,12 @@ fun DogoSetupScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var input by remember { mutableStateOf("") }
+
+    // Pick up an agent changed in Dogo Options when returning to the chat.
+    LifecycleResumeEffect(viewModel) {
+        viewModel.reloadOptions()
+        onPauseOrDispose { }
+    }
     val listState = rememberLazyListState()
 
     LaunchedEffect(state.messages.size) {
@@ -72,7 +79,22 @@ fun DogoSetupScreen(
 
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text("Dogo Setup") }) },
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("Dogo Setup")
+                        state.modelName?.let { name ->
+                            Text(
+                                name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
+            )
+        },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -80,9 +102,7 @@ fun DogoSetupScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp),
         ) {
-            if (state.messages.isEmpty() && state.status != null) {
-                StatusNote(state.status!!)
-            }
+            state.status?.let { StatusNote(it) }
 
             LazyColumn(
                 state = listState,
@@ -91,7 +111,7 @@ fun DogoSetupScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp),
             ) {
                 items(state.messages) { message ->
-                    MessageBubble(message)
+                    MessageBubble(message, state.options)
                 }
                 if (state.busy) {
                     item {
@@ -155,7 +175,7 @@ private fun StatusNote(text: String) {
 }
 
 @Composable
-private fun MessageBubble(message: SetupChatViewModel.Message) {
+private fun MessageBubble(message: SetupChatViewModel.Message, options: AgentOptions) {
     val alignment = if (message.fromUser) Alignment.End else Alignment.Start
     val bg = if (message.fromUser) {
         MaterialTheme.colorScheme.primaryContainer
@@ -173,14 +193,14 @@ private fun MessageBubble(message: SetupChatViewModel.Message) {
         }
         if (message.proposedActions.isNotEmpty()) {
             message.proposedActions.forEach { action ->
-                ProposedActionCard(action)
+                ProposedActionCard(action, options)
             }
         }
     }
 }
 
 @Composable
-private fun ProposedActionCard(action: Action) {
+private fun ProposedActionCard(action: Action, options: AgentOptions) {
     val title = when (action) {
         is Action.SetTheme -> "Set theme to ${action.theme}"
         is Action.SetWallpaper -> "Set wallpaper to ${action.color}"
@@ -195,7 +215,11 @@ private fun ProposedActionCard(action: Action) {
             Text("Proposed change", style = MaterialTheme.typography.labelMedium)
             Text(title, style = MaterialTheme.typography.bodyMedium)
             Text(
-                if (AgentOptions().needsConfirmation(action)) "Tap to approve" else "Allowed",
+                when {
+                    !options.isAllowed(action) -> "Switched off in Dogo Options"
+                    options.needsConfirmation(action) -> "Tap to approve"
+                    else -> "Allowed"
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

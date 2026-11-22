@@ -10,6 +10,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.dogo.launcher.agent.AgentOptions
 import app.dogo.launcher.agent.AgentOptions.ActionType
+import app.dogo.launcher.agent.backend.AgentBackends
+import app.dogo.launcher.agent.backend.AgentConfig
+import app.dogo.launcher.agent.backend.AgentPreset
+import app.dogo.launcher.agent.backend.ChatTurn
+import app.dogo.launcher.agent.backend.ModelLister
 import app.dogo.launcher.llm.HardwareProfile
 import app.dogo.launcher.llm.ModelCatalog
 import app.dogo.launcher.llm.ModelDownloader
@@ -21,8 +26,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Backs the Dogo options screen: which model to use, where it runs, and what
- * the agent is allowed to change.
+ * Backs the Dogo options screen: which agent answers, which on-device model it
+ * uses, and what the agent is allowed to change.
  *
  * Persistence is deliberately simple — the options are a handful of scalars,
  * and a launcher must not fail to start because its settings file is corrupt.
@@ -40,8 +45,17 @@ class DogoOptionsViewModel(
         val progress: Float = 0f,
     )
 
+    /** Result of the last "Test connection" for the selected agent. */
+    sealed interface ConnectionCheck {
+        data object Idle : ConnectionCheck
+        data object Running : ConnectionCheck
+        data class Ok(val reply: String, val models: List<String>) : ConnectionCheck
+        data class Failed(val message: String) : ConnectionCheck
+    }
+
     data class UiState(
         val options: AgentOptions = AgentOptions(),
+        val connection: ConnectionCheck = ConnectionCheck.Idle,
         val recommendation: HardwareProfile.Recommendation? = null,
         val models: List<ModelRow> = emptyList(),
         val activeDownload: String? = null,
@@ -53,6 +67,7 @@ class DogoOptionsViewModel(
     private val downloader = ModelDownloader.forContext(application)
     private val store = OptionsStore(application)
     private var downloadJob: Job? = null
+    private var connectionJob: Job? = null
 
     private val _uiState = MutableStateFlow(UiState(options = store.load()))
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -91,7 +106,50 @@ class DogoOptionsViewModel(
         _uiState.update { it.copy(options = updated) }
     }
 
-    fun setRuntime(runtime: AgentOptions.Runtime) = updateOptions { it.copy(runtime = runtime) }
+    fun selectAgent(preset: AgentPreset) {
+        connectionJob?.cancel()
+        updateOptions { it.copy(agentId = preset.id) }
+        _uiState.update { it.copy(connection = ConnectionCheck.Idle) }
+    }
+
+    /** Saves edits to the selected agent's address, model or key. */
+    fun updateAgentConfig(transform: (AgentConfig) -> AgentConfig) {
+        updateOptions { options -> options.withConfig(options.agent, transform(options.configFor(options.agent))) }
+        if (_uiState.value.connection !is ConnectionCheck.Running) {
+            _uiState.update { it.copy(connection = ConnectionCheck.Idle) }
+        }
+    }
+
+    /**
+     * Sends one real request to the selected agent, and lists its models when
+     * the server supports that, so a broken address or key shows up here
+     * rather than halfway through setup.
+     */
+    fun testConnection() {
+        val agent = _uiState.value.options.resolvedAgent()
+        val problem = agent.problems().firstOrNull()
+        if (problem != null) {
+            _uiState.update { it.copy(connection = ConnectionCheck.Failed(problem.message)) }
+            return
+        }
+        val backend = AgentBackends.remote(agent) ?: return
+        connectionJob?.cancel()
+        _uiState.update { it.copy(connection = ConnectionCheck.Running) }
+        connectionJob = viewModelScope.launch {
+            val models = (backend as? ModelLister)?.listModels()?.getOrNull().orEmpty()
+            val check = backend.reply(
+                system = "You are being tested by the Dogo launcher. Reply with exactly: Dogo connected",
+                turns = listOf(ChatTurn(ChatTurn.Role.USER, "Connection test. Reply with: Dogo connected")),
+            ).fold(
+                onSuccess = { ConnectionCheck.Ok(it.trim().take(120), models) },
+                onFailure = { e ->
+                    val hint = if (models.isNotEmpty()) " Available models: ${models.take(8).joinToString()}" else ""
+                    ConnectionCheck.Failed((e.message ?: "The agent didn't answer.") + hint)
+                },
+            )
+            _uiState.update { it.copy(connection = check) }
+        }
+    }
 
     fun setThinkingLevel(level: AgentOptions.ThinkingLevel) = updateOptions { it.copy(thinkingLevel = level) }
 
@@ -149,5 +207,6 @@ class DogoOptionsViewModel(
     override fun onCleared() {
         super.onCleared()
         downloadJob?.cancel()
+        connectionJob?.cancel()
     }
 }

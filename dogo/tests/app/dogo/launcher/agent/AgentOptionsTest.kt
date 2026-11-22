@@ -7,6 +7,8 @@ package app.dogo.launcher.agent
 
 import app.dogo.launcher.agent.Action
 import app.dogo.launcher.agent.ActionExecutor
+import app.dogo.launcher.agent.backend.AgentCatalog
+import app.dogo.launcher.agent.backend.AgentConfig
 import app.dogo.launcher.llm.HardwareProfile
 import app.dogo.launcher.llm.ModelCatalog
 import com.google.common.truth.Truth.assertThat
@@ -24,7 +26,8 @@ class AgentOptionsTest {
     @Test
     fun `defaults to on-device with every action available`() {
         val options = AgentOptions()
-        assertThat(options.runtime).isEqualTo(AgentOptions.Runtime.ON_DEVICE)
+        assertThat(options.agent).isEqualTo(AgentCatalog.ON_DEVICE)
+        assertThat(options.isOnDevice).isTrue()
         assertThat(options.allowedActions)
             .containsExactlyElementsIn(AgentOptions.ActionType.entries)
         assertThat(options.requireConfirmation).isTrue()
@@ -128,8 +131,8 @@ class AgentOptionsTest {
     }
 
     @Test
-    fun `the cloud runtime has no local model`() {
-        val options = AgentOptions(runtime = AgentOptions.Runtime.CLOUD, modelId = smallest.id)
+    fun `a remote agent has no local model`() {
+        val options = AgentOptions(agentId = AgentCatalog.HERMES.id, modelId = smallest.id)
         assertThat(options.resolveModel(recommend())).isNull()
     }
 
@@ -141,9 +144,42 @@ class AgentOptionsTest {
     }
 
     @Test
-    fun `choosing the cloud is surfaced as a caveat`() {
-        val issues = AgentOptions(runtime = AgentOptions.Runtime.CLOUD).validate(recommend())
-        assertThat(issues).contains(AgentOptions.Issue.CLOUD_TIER)
+    fun `choosing an off-phone agent is surfaced as a caveat`() {
+        val issues = AgentOptions(agentId = AgentCatalog.OPENROUTER.id).validate(recommend())
+        assertThat(issues).contains(AgentOptions.Issue.LEAVES_DEVICE)
+        assertThat(AgentOptions().validate(recommend())).doesNotContain(AgentOptions.Issue.LEAVES_DEVICE)
+    }
+
+    @Test
+    fun `on-device model problems are not reported for a remote agent`() {
+        val tinyPhone = HardwareProfile.recommendModel(ramGb = 1, freeStorageGb = 64)
+        val issues = AgentOptions(agentId = AgentCatalog.HERMES.id).validate(tinyPhone)
+        assertThat(issues).doesNotContain(AgentOptions.Issue.NO_MODEL_FITS)
+    }
+
+    // ---- agent selection ----------------------------------------------------
+
+    @Test
+    fun `an unknown agent id falls back to on-device`() {
+        // e.g. options written by a newer build that knows more agents.
+        val options = AgentOptions(agentId = "from-the-future")
+        assertThat(options.agent).isEqualTo(AgentCatalog.ON_DEVICE)
+        assertThat(options.isOnDevice).isTrue()
+    }
+
+    @Test
+    fun `each agent keeps its own settings`() {
+        val options = AgentOptions()
+            .withConfig(AgentCatalog.HERMES, AgentConfig(apiKey = "hermes-key"))
+            .withConfig(AgentCatalog.OPENROUTER, AgentConfig(apiKey = "or-key", model = "x/y"))
+            .copy(agentId = AgentCatalog.OPENROUTER.id)
+
+        assertThat(options.resolvedAgent().apiKey).isEqualTo("or-key")
+        assertThat(options.resolvedAgent().model).isEqualTo("x/y")
+        // Switching back finds Hermes' settings untouched.
+        val back = options.copy(agentId = AgentCatalog.HERMES.id).resolvedAgent()
+        assertThat(back.apiKey).isEqualTo("hermes-key")
+        assertThat(back.model).isEqualTo(AgentCatalog.HERMES.defaultModel)
     }
 
     @Test

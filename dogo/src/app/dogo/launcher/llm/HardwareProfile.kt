@@ -23,7 +23,7 @@ object HardwareProfile {
     data class Recommendation(
         /** Best model that fits, or null when nothing fits. */
         val primary: ModelCatalog.ModelVariant?,
-        /** True when [primary] is null and the user needs the cloud tier. */
+        /** True when [primary] is null, so only an off-phone agent can run. */
         val cloudOnly: Boolean,
         val rationale: String,
         /** RAM the recommendation was computed from, so callers can re-check a
@@ -71,7 +71,7 @@ object HardwareProfile {
                 cloudOnly = true,
                 rationale = "This device has $ramGb GB of RAM, which is below the " +
                     "${ModelCatalog.variants().minOf { it.minRamGb }} GB needed to run a model " +
-                    "on-device. Setup will use the cloud tier instead.",
+                    "on-device. Choose an off-phone agent, such as Hermes on your computer.",
                 ramGb = ramGb,
                 freeStorageGb = freeStorageGb,
             )
@@ -82,7 +82,7 @@ object HardwareProfile {
                 rationale = "This device needs about " +
                     "${ModelCatalog.variants().minOf { ModelCatalog.requiredStorageGb(it) }} GB of " +
                     "free storage to run a model on-device, but only $freeStorageGb GB is free. " +
-                    "Free up space, or use the cloud tier.",
+                    "Free up space, or choose an off-phone agent.",
                 ramGb = ramGb,
                 freeStorageGb = freeStorageGb,
             )

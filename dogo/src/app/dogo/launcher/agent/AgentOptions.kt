@@ -5,6 +5,12 @@
 
 package app.dogo.launcher.agent
 
+import app.dogo.launcher.agent.backend.AgentCatalog
+import app.dogo.launcher.agent.backend.AgentConfig
+import app.dogo.launcher.agent.backend.AgentKind
+import app.dogo.launcher.agent.backend.AgentPreset
+import app.dogo.launcher.agent.backend.ResolvedAgent
+import app.dogo.launcher.agent.backend.resolve
 import app.dogo.launcher.llm.HardwareProfile
 import app.dogo.launcher.llm.ModelCatalog
 
@@ -16,15 +22,20 @@ import app.dogo.launcher.llm.ModelCatalog
  * without a device or a UI. The Compose options sheet is a thin view over this.
  */
 data class AgentOptions(
-    /** Where the model runs. */
-    val runtime: Runtime = Runtime.ON_DEVICE,
+    /**
+     * Which agent answers, by [AgentPreset.id]. On-device by default: a
+     * launcher whose brain needs a server has no brain when the server is down.
+     */
+    val agentId: String = AgentCatalog.ON_DEVICE.id,
+    /** Per-agent address, model and key overrides, keyed by [AgentPreset.id]. */
+    val agentConfigs: Map<String, AgentConfig> = emptyMap(),
     /**
      * Chosen model, or null to follow the hardware recommendation. Null is the
      * default because a launcher that pins a model on install will pin one that
      * does not fit the phone it was installed on.
      */
     val modelId: String? = null,
-    /** Effort spent per turn, used when escalating to the cloud tier. */
+    /** Effort spent per turn. Not yet sent to remote agents. */
     val thinkingLevel: ThinkingLevel = ThinkingLevel.DEFAULT,
     /** Which actions the agent may perform without asking. */
     val allowedActions: Set<ActionType> = ActionType.entries.toSet(),
@@ -32,16 +43,20 @@ data class AgentOptions(
     val requireConfirmation: Boolean = true,
 ) {
 
-    enum class Runtime {
-        /** Local GGUF via llama.cpp. Works with no network at all. */
-        ON_DEVICE,
+    /** The chosen agent; an unknown id (e.g. from a newer build) means on-device. */
+    val agent: AgentPreset
+        get() = AgentCatalog.find(agentId) ?: AgentCatalog.ON_DEVICE
 
-        /**
-         * A remote model. Deliberately not the default: a launcher whose brain
-         * needs a server is a launcher with no brain when the server is down.
-         */
-        CLOUD,
-    }
+    val isOnDevice: Boolean
+        get() = agent.kind == AgentKind.ON_DEVICE
+
+    /** The chosen agent with the user's overrides applied. */
+    fun resolvedAgent(): ResolvedAgent = agent.resolve(agentConfigs[agent.id])
+
+    /** [preset]'s overrides, or an empty config. */
+    fun configFor(preset: AgentPreset): AgentConfig = agentConfigs[preset.id] ?: AgentConfig()
+
+    fun withConfig(preset: AgentPreset, config: AgentConfig): AgentOptions = copy(agentConfigs = agentConfigs + (preset.id to config))
 
     enum class ThinkingLevel(val wireName: String, val blurb: String) {
         LOW("low", "Quick answers, more battery left over."),
@@ -142,7 +157,7 @@ data class AgentOptions(
      * from a bigger phone cannot leave the agent with a model it cannot run.
      */
     fun resolveModel(recommendation: HardwareProfile.Recommendation): ModelCatalog.ModelVariant? {
-        if (runtime == Runtime.CLOUD) return null
+        if (!isOnDevice) return null
         val pinned = pinnedModel() ?: return recommendation.primary
         return if (HardwareProfile.fits(pinned, recommendation.ramGb, recommendation.freeStorageGb)) {
             pinned
@@ -163,20 +178,20 @@ data class AgentOptions(
     fun validate(recommendation: HardwareProfile.Recommendation): List<Issue> {
         val issues = mutableListOf<Issue>()
 
-        if (runtime == Runtime.CLOUD) {
-            issues += Issue.CLOUD_TIER
+        if (agent.leavesDevice) {
+            issues += Issue.LEAVES_DEVICE
         }
 
         val pinned = pinnedModel()
-        if (runtime == Runtime.ON_DEVICE && pinned == null && modelId != null) {
+        if (isOnDevice && pinned == null && modelId != null) {
             issues += Issue.UNKNOWN_MODEL
         }
 
-        if (runtime == Runtime.ON_DEVICE && recommendation.primary == null && pinned == null) {
+        if (isOnDevice && recommendation.primary == null && pinned == null) {
             issues += Issue.NO_MODEL_FITS
         }
 
-        if (runtime == Runtime.ON_DEVICE && pinned != null &&
+        if (isOnDevice && pinned != null &&
             !HardwareProfile.fits(pinned, recommendation.ramGb, recommendation.freeStorageGb)
         ) {
             // The pick is real but this phone cannot run it. Say so plainly
@@ -192,13 +207,13 @@ data class AgentOptions(
     }
 
     enum class Issue(val message: String) {
-        CLOUD_TIER(
-            "Running in the cloud means the agent stops working without a network " +
-                "connection, and your requests leave the phone.",
+        LEAVES_DEVICE(
+            "This agent runs off the phone: it needs a network connection, and " +
+                "your conversation is sent to it.",
         ),
         NO_MODEL_FITS(
-            "No model in the catalogue fits this phone, so on-device setup is " +
-                "unavailable until you free up storage.",
+            "No on-device model fits this phone. Pick an off-phone agent below, " +
+                "such as Hermes on your computer.",
         ),
         UNKNOWN_MODEL("The selected model is no longer in the catalogue."),
         MODEL_TOO_BIG(
