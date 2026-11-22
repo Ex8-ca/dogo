@@ -10,7 +10,7 @@
 
 **Tech Stack:**
 - **Language:** Kotlin (Android)
-- **Base:** Lawnchair launcher fork (GPL-3)
+- **Base:** Lawnchair launcher fork (Apache-2.0)
 - **LLM Runtime:** MediaPipe LLM Inference (Gemma 4 E2B/E4B, FunctionGemma 270M)
 - **UI Agent:** Android AccessibilityService
 - **Permissions:** Shizuku API (no-root elevated access)
@@ -357,7 +357,7 @@ Create `metadata/app.dogo.launcher.yml`:
 Categories:
   - Launcher
   - System
-License: GPL-3.0-only
+License: Apache-2.0
 AuthorName: Dogo Phone Contributors
 SourceCode: https://github.com/YOUR_USERNAME/dogo-launcher
 IssueTracker: https://github.com/YOUR_USERNAME/dogo-launcher/issues

@@ -1,3 +1,5 @@
+> This is the upstream Lawnchair README, kept for reference and credit. Dogo is a fork of Lawnchair; see the [Dogo README](../README.md).
+
 # Lawnchair 16
 
 [![Build debug APK](https://github.com/LawnchairLauncher/lawnchair/actions/workflows/ci.yml/badge.svg)](https://github.com/LawnchairLauncher/lawnchair/actions/workflows/ci.yml)
@@ -11,8 +13,8 @@
 
 <picture>
     <!-- Avoid image being clickable with slight workaround -->
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/device-frame-dark.webp" width="250px">
-    <img alt="Smartphone home screen shown in day and night themes, featuring Android Material You dynamic color styling across the wallpaper, clock widget, and app icons." src="docs/assets/device-frame-light.webp" width="250px">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/device-frame-dark.webp" width="250px">
+    <img alt="Smartphone home screen shown in day and night themes, featuring Android Material You dynamic color styling across the wallpaper, clock widget, and app icons." src="assets/device-frame-light.webp" width="250px">
 </picture>
 
 Lawnchair is a free, open-source home app for Android. Taking Launcher3—Android’s default home app—as a starting point, it ports Pixel Launcher features and introduces rich customization options.
@@ -33,26 +35,26 @@ This branch houses the codebase of Lawnchair 16, which is currently in developme
   <a href="https://play.google.com/store/apps/details?id=app.lawnchair.play">
     <picture>
       <!-- Avoid image being clickable with slight workaround -->
-      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/badge-google-play.webp" height="60">
-      <img alt="Get it on Google Play" src="docs/assets/badge-google-play.webp" height="60">
+      <source media="(prefers-color-scheme: dark)" srcset="assets/badge-google-play.webp" height="60">
+      <img alt="Get it on Google Play" src="assets/badge-google-play.webp" height="60">
     </picture>
   </a>
   <a href="https://apt.izzysoft.de/fdroid/index/apk/app.lawnchair">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/badge-izzyondroid.webp" height="60">
-      <img alt="Get it on IzzyOnDroid" src="docs/assets/badge-izzyondroid.webp" height="60">
+      <source media="(prefers-color-scheme: dark)" srcset="assets/badge-izzyondroid.webp" height="60">
+      <img alt="Get it on IzzyOnDroid" src="assets/badge-izzyondroid.webp" height="60">
     </picture>
   </a>
   <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/LawnchairLauncher/lawnchair/">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/badge-obtainium.webp" height="60">
-      <img alt="Get it on Obtainium" src="docs/assets/badge-obtainium.webp" height="60">
+      <source media="(prefers-color-scheme: dark)" srcset="assets/badge-obtainium.webp" height="60">
+      <img alt="Get it on Obtainium" src="assets/badge-obtainium.webp" height="60">
     </picture>
   </a>
     <a href="https://github.com/LawnchairLauncher/lawnchair/releases">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/badge-github.webp" height="60">
-      <img alt="Get it on GitHub" src="docs/assets/badge-github.webp" height="60">
+      <source media="(prefers-color-scheme: dark)" srcset="assets/badge-github.webp" height="60">
+      <img alt="Get it on GitHub" src="assets/badge-github.webp" height="60">
     </picture>
   </a>
 </p>
@@ -74,8 +76,8 @@ Download: [Obtainium][Obtainium link] • [GitHub][GitHub link] • [nightly.lin
 <p align="left">
   <a href="https://coderabbit.link/lawnchair">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/sponsor-coderabbit-dark.svg" width="300">
-      <img alt="CodeRabbit" src="docs/assets/sponsor-coderabbit-light.svg" width="300">
+      <source media="(prefers-color-scheme: dark)" srcset="assets/sponsor-coderabbit-dark.svg" width="300">
+      <img alt="CodeRabbit" src="assets/sponsor-coderabbit-light.svg" width="300">
     </picture>
   </a>
 </p>
@@ -95,7 +97,7 @@ A huge thank you to our Core Backers ($5+):
 
 ## Contribute
 
-Visit the [Lawnchair contributing guidelines](CONTRIBUTING.md) for information and tips on contributing to Lawnchair.
+Visit the [Lawnchair contributing guidelines](../CONTRIBUTING.md) for information and tips on contributing to Lawnchair.
 
 ## Quick links
 
