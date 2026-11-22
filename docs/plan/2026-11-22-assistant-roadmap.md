@@ -240,6 +240,62 @@ Decisions confirmed by the user:
 Done when: with a week of real use, the user can see why each alert fired, and
 turning off one sender or app takes two taps.
 
+### Opt-in Bluetooth headset companion
+
+Requested behaviour: when enabled and an approved Bluetooth headset is the
+actual audio output, Dogo may proactively offer to read relevant notifications
+and continue a short voice conversation. This is planned, not implemented.
+
+- Default OFF, separate from notification analysis. User chooses which headset
+  routes and watched apps qualify, plus a minimum priority. Connecting a car
+  stereo, speaker or unknown Bluetooth device must not enable spoken previews.
+  A connected headset is not proof it is being worn; do not claim wear detection
+  unless that hardware exposes a usable signal.
+- Greet once per eligible session using the shared user profile, if a preferred
+  name is known: “Hi Marc. Is now a good time for updates?” Do not re-greet on
+  every notification or guess the name. Initial prompt is generic; private
+  sender/message details wait for permission to read.
+- If the user declines, ask once “For how long?” Support a duration, “until I
+  ask”, “until I reconnect”, and “until my music/video finishes”. Persist timed
+  snooze across process restart and allow a visible Resume/Stop control. Silence
+  or no answer means keep quiet, not permission to keep prompting.
+- During music/video audio, calls, meetings, recording conflicts, audio-focus
+  loss, Do Not Disturb or a snooze, queue updates silently. Do not pause/duck
+  the user's media to ask whether interrupting it is acceptable. After playback
+  ends, wait for a short stable idle period, then offer ONE digest, not a burst
+  of every queued message. Respect expiry and notifications already dismissed.
+- Playback detection: combine audio playback state and available media-session
+  signals (normal Notification Access where needed). Muted/silent video is not
+  reliably detectable without additional app integration; support manual
+  snooze and describe the limitation, not a claim to observe every video.
+- Verify the actual audio route before and throughout speech. Headset loss or
+  route change stops playback immediately and discards pending audio; never
+  fall back to the phone speaker for private content. Bluetooth permissions,
+  A2DP/communication routing and SCO quality changes must be tested on hardware.
+- An Android foreground service with a clear persistent notification supports
+  opted-in background playback. Start the companion/listening session while
+  the app is visible or via a supported user action; do not assume a Bluetooth
+  connection permits background microphone startup. Android 15+ audio focus
+  requires a top app or foreground service. Request necessary Bluetooth,
+  microphone and notification permissions when needed, not at app startup.
+- Keep unsolicited speech and microphone capture separate. Baseline mode uses
+  notification/TTS offers and a headset/app action to answer; any hands-free
+  response window is explicitly enabled, short, visibly indicated and stopped
+  on timeout. No hidden always-open Realtime microphone or continuous network
+  streaming. Voice-confirmed replies still require explicit send confirmation.
+- Shared personality/profile and conversation summaries are a dependency for
+  consistent greetings and continuity; do not hard-code the owner's name.
+  Tool-free notification analysis is another dependency. The headset option
+  does not bypass the current Hermes isolation gate or notification provenance.
+
+Implementation slices: (1) pure companion-state policy and tests (eligible
+route, snooze, media/call suppression, cooldown, queue coalescing); (2) Android
+route/media adapters and background playback lifecycle; (3) settings and generic
+spoken offers; (4) bounded response/listening window and notification discussion
+once its safe selected-agent route exists. Verify disconnect mid-sentence,
+media starting/stopping, no-answer, restart during snooze, DND, locked phone,
+and no-private-audio-on-speaker on the actual Pixel/headset.
+
 ### First integration checkpoint (local verification)
 
 - Default-off app allowlist, Notification Access setup, posting-permission UI,
