@@ -42,6 +42,11 @@ Further third-party dependencies inherited from Lawnchair are listed, with
 their licenses, on the in-app Acknowledgements screen (generated at build time
 by the Licensee Gradle plugin) and in lawnchair/assets/license.html.
 
+Omarchy themes are not bundled. Dogo downloads a theme's colors.toml and
+wallpapers from GitHub when the user picks one. The official themes come from
+https://github.com/omacom/omarchy (Copyright (c) Basecamp, MIT License), and
+community themes from their own repositories, under their own licenses.
+
 On-device model weights (GGUF files) are NOT distributed with this product.
 They are downloaded at runtime from their publishers and are governed by
 their own licenses.
