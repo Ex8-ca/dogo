@@ -68,20 +68,27 @@ Done when: every step above works on the Pixel, and the commit passes CI.
 
 ## Phase 1: one agent for chat and voice, with web search
 
-Goal: typing and talking get the same abilities.
+Correction (2026-11-22, tested on the Pixel): this phase was written assuming
+typed chat could not use Hermes's tools. It can. Chat goes to Hermes's
+OpenAI-style endpoint, which runs the full agent. Asking "search the web for
+the latest stable LineageOS and tell me the URL you used" returned an answer in
+20 seconds with the URL, and the agent said itself that the page was a
+third-party tracker and not the official site. So for Hermes, search already
+works by typing and by voice.
 
-- Send typed turns that need real work through the same Hermes hand-off the
-  voice uses. Rule: the model decides per turn, either "propose phone changes"
-  (cards, as now) or "ask Hermes" (a short working state, then the answer).
-  Show Hermes tool use as a small status line, like Relay does.
-- Web search for agents that are not Hermes. Pick one in Phase 1 planning:
-  a self-hosted SearXNG on the .3 server (no key, private), or a search API
-  key kept in the Keystore like the OpenAI key. Default: Hermes does it; the
-  direct tool is only for the on-device model when Hermes is unreachable.
-- Cite sources: results show as small link chips under the answer.
+What is left:
 
-Done when: "what's the weather in Austin" and "find the cheapest USB-C hub"
-work by typing and by voice, and the answer says where it came from.
+- Sources as tappable chips under an answer (today the URL is plain text in the
+  reply). Parse links from the reply; no extra model call.
+- A visible "searching the web" state while Hermes works (typed chat only shows
+  "Thinking…").
+- Agents that are not Hermes (the on-device model, a plain OpenAI-style server)
+  have no search. Options: SearXNG on the .3 server, or a search API key in
+  the Keystore. Decision 3 below; skip this if Hermes is always the agent.
+- Tell the agent to prefer official sources (it already hedges honestly; a line
+  in the system prompt makes it check them).
+
+Size: 1 day, not 2 to 3.
 
 ## Phase 2: proactive alerts
 
