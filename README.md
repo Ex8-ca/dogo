@@ -30,9 +30,10 @@ the Lawnchair project or Google. Please report Dogo bugs
 
 ## What Dogo adds
 
-- **Conversational setup.** A chat-driven setup flow where the agent proposes
-  concrete changes (theme, wallpaper, folders, home-screen apps, hiding apps,
-  animation speed). Nothing is applied until you approve it.
+- **Conversational setup.** A chat where the agent proposes concrete changes:
+  Dogo's theme, the phone's dark mode, wallpaper, folders, home-screen apps,
+  hiding apps, animation speed. Each change shows up as a card with **Apply**.
+  The agent sees your installed apps, so it uses real package names.
 - **On-device AI.** GGUF models run locally through
   [llama.cpp](https://github.com/ggml-org/llama.cpp) (via
   [java-llama.cpp](https://github.com/kherud/java-llama.cpp)). Weights are
@@ -40,11 +41,24 @@ the Lawnchair project or Google. Please report Dogo bugs
   models that fit your phone's RAM and storage.
 - **Choose your agent.** Like Omarchy, Dogo doesn't pick a vendor for you.
   Use the on-device model, [Hermes Agent](https://github.com/NousResearch/hermes-agent)
-  on your own computer, OpenRouter, Groq, Claude, Ollama, or any
-  OpenAI-compatible server. Set it up in Dogo Options and use "Test connection"
-  to check it. API keys are encrypted with an Android Keystore key, and plain
-  http is only allowed to the phone itself (for `adb reverse` or Termux).
-  Whichever agent you choose, its proposals go through the same action gates.
+  on your own computer, OpenRouter, Groq, Claude, Ollama, any
+  OpenAI-compatible server, or a CLI agent (Claude Code, OpenCode, Codex,
+  Hermes) installed in [Termux](https://termux.dev/). "Test connection" checks
+  it. API keys are encrypted with an Android Keystore key, and plain http is
+  only allowed to the phone itself.
+- **Least-privilege system access.** Every change uses the least access that
+  works. Launcher changes need nothing. Animation speed needs a one-time
+  `adb pm grant`. The phone's dark mode needs
+  [Shizuku](https://shizuku.rikka.app/) or root. Dogo tells you exactly what
+  to set up when a change is blocked.
+- **Plugins.** Add-ons are ordinary APKs with a manifest shaped like an
+  Omarchy plugin's, plus a list of capabilities you approve before enabling
+  them. Their actions show up in the chat like built-in ones. See
+  [`docs/plugins.md`](docs/plugins.md) and the sample in
+  [`plugins/sample-notes`](plugins/sample-notes).
+- **Omarchy themes.** Apply any official
+  [Omarchy](https://github.com/omacom/omarchy) theme, or a community theme from
+  GitHub, to Dogo: light/dark mode, accent colour and wallpaper.
 - **Action gates.** You choose which kinds of changes the agent may make, and
   whether each one still needs a confirmation tap.
 - **Google-free by design.** Points you to [F-Droid](https://f-droid.org/) and
@@ -53,10 +67,9 @@ the Lawnchair project or Google. Please report Dogo bugs
 
 ## Roadmap
 
-- AccessibilityService and [Shizuku](https://shizuku.rikka.app/) integration so
-  the agent can configure apps and system settings, not just the launcher
-- **Community plugins**, Omarchy-style: add-ons that extend what the agent can
-  do, distributed through an F-Droid repository
+- AccessibilityService so the agent can read the screen and configure other apps
+- More plugin kinds wired up (widgets, panels, agent context), and a Dogo
+  plugin repository on F-Droid
 - F-Droid release
 - Later: a LineageOS-based build with Dogo as a privileged system app
 
@@ -89,7 +102,8 @@ upstream-flavoured variant for comparison.
 
 | Path | What |
 |---|---|
-| `dogo/src/app/dogo/launcher/` | Dogo code: `agent/`, `llm/`, `cloud/`, `ui/setup/`, `ui/options/`, `distribution/` |
+| `dogo/src/app/dogo/launcher/` | Dogo code: `agent/` (actions, options, `backend/` agents), `privilege/` (access tiers, applying changes), `plugins/`, `themes/`, `llm/`, `ui/` |
+| `plugins/sample-notes/` | A minimal example plugin (separate APK) |
 | `dogo/tests/`, `dogo/androidTest/` | Dogo unit and on-device tests |
 | `dogo/res/` | Dogo strings and branding overrides |
 | everything else | Lawnchair / Launcher3, kept close to upstream so merges stay easy |
