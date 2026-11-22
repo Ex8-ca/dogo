@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright 2026 The Dogo Authors. SPDX-License-Identifier: Apache-2.0
 # Dogo Phone Launcher — dev helper.
 #
 # Toolchain is pinned via ../.mise.toml (JDK 21 / ANDROID_HOME), so simply

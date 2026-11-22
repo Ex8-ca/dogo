@@ -1,3 +1,8 @@
+/*
+ * Copyright 2026 The Dogo Authors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package app.dogo.launcher.llm
 
 import android.app.ActivityManager
