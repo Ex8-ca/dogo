@@ -1,3 +1,8 @@
+/*
+ * Part of Lawnchair (Apache-2.0).
+ * Modified by The Dogo Authors, 2026 (see NOTICE).
+ */
+
 package app.lawnchair.ui.preferences.navigation
 
 import android.content.Intent
