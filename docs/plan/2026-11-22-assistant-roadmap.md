@@ -176,6 +176,69 @@ Goal: browse and install from the Hermes marketplace inside Dogo.
 Done when: from the phone, find a skill, read what it does and what it
 touches, approve, and it is used on the next turn.
 
+## Phase 5: system access, and the Tenkai roadmap
+
+Added 2026-11-22 after comparing with Tenkai's public roadmap
+(tenkailauncher.com/#roadmap, read that day). Every item is tagged with the
+access it needs, because that decides whether anyone can use it.
+
+Access levels, lowest first (see `privilege/Tier.kt`):
+
+- **Dogo only**: works for everyone, nothing to set up.
+- **Permission**: a normal Android toggle the user flips once (for example
+  "draw over other apps", notification access).
+- **adb grant**: one command from a computer, once. Survives reboots.
+- **Shizuku or root**: shell commands run by Dogo. Shizuku needs no root.
+- **System app**: needs Dogo built into the OS (the LineageOS build).
+
+What exists today. Dogo only: theme, folders, hide apps, ring, wallpaper,
+widgets, dock, grid, icon shape and size, accent, icon pack. adb grant:
+widget binding without a prompt per widget, animation speed. Shizuku or root:
+system dark mode, and nothing else. The Shizuku and root routes are written but
+have not been tried on the phone; the user accepts any root prompt themselves.
+
+### 5a. More the agent can do once it has a shell (Shizuku or root)
+
+Each is one reviewable command behind an approval card and its own switch in
+Dogo Options, like every other action.
+
+- Freeze, unfreeze or uninstall bloat apps; grant or revoke a permission for
+  another app (`pm`).
+- Wi-Fi, Bluetooth, airplane mode, Do Not Disturb, battery saver (`cmd`,
+  `settings`, `svc`).
+- Screen density, font size, screen timeout (`wm`, `settings`): "make
+  everything bigger".
+- System-wide accent colour, font and icon shape through overlays
+  (`cmd overlay`), so the change reaches Settings and other apps, not only Dogo.
+- Switch on Dogo's notification access without a trip through Settings.
+  Phase 2 depends on this, so it comes first.
+- Freeform or tiled windows, from the earlier Omarchy question.
+
+Out of reach even with root: the status bar, navigation bar and boot
+animation. Those wait for the system-app build.
+
+### 5b. Tenkai roadmap items, mapped
+
+| Tenkai item | Their status | Dogo | Access | Where |
+|---|---|---|---|---|
+| Stacked and grouped widgets | Shipped (1.6.0) | Not built. Needs a container widget; Lawnchair has none | Dogo only | Own task after Phase 3 |
+| Notification and to-do counts in the date line | Next up | Phase 2 gives the data | Permission | Phase 2 |
+| Catch-up and notes widget | Next up | Alerts digest plus quick notes | Permission | Phase 2 |
+| Floating pie over any app | Exploring | Not built | Permission (draw over apps) | Own task; after the ring is checked on the phone |
+| Home-screen spotlight search | Exploring | Not built | Dogo only | Own task; can search apps, contacts and the web through Phase 1 |
+| Optional on-device AI suggestions | Exploring | Mostly there: the agent already does this | Dogo only | Phases 1 to 3 |
+| A to Z index slider | Exploring | In Lawnchair already | Dogo only | Done |
+| Android Private Space | Exploring | Should work on Android 15 builds; LineageOS 22 qualifies | Dogo only | Check on the phone |
+| HTTP queries, RSS | Their pricing page | Plugins | Dogo only | Phase 3 skills |
+
+Order inside this phase: notification access (5a), then counts and the
+catch-up widget (Phase 2 items), then spotlight search and the floating pie.
+Test Shizuku on the phone before building more shell actions on it.
+
+Done when: Shizuku is paired on the Pixel and one shell action runs end to end
+from a card, and each Tenkai row above is either built, scheduled, or marked
+"not doing".
+
 ## Order and size
 
 | Phase | What | Size |
@@ -185,6 +248,7 @@ touches, approve, and it is used on the next turn.
 | 2 | Alerts: listener, rules, scoring, ntfy, digest | 1 to 1.5 weeks |
 | 3 | Skills format, loader, Options screen, 3 starters | 1 week |
 | 4 | Marketplace spike, browse, install gate | 3 to 5 days |
+| 5 | Shizuku test, shell actions, Tenkai items | 1.5 to 2 weeks, in pieces |
 
 Each phase ships on its own and is tagged, as before. Phase 2 depends on
 nothing but Phase 0; Phase 3 should land before Phase 4. Phase 2 is the one
