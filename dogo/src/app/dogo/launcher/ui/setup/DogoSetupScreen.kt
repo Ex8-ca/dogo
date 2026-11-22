@@ -173,8 +173,8 @@ fun DogoSetupScreen(
     }
 
     val send = {
-        if (input.isNotBlank() && !state.busy) {
-            viewModel.send(input)
+        // Keep the text if the agent can't take it, so nothing the user typed is lost.
+        if (input.isNotBlank() && !state.busy && viewModel.send(input)) {
             input = ""
         }
     }
