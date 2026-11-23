@@ -149,4 +149,25 @@ class RingTest {
         // Nothing to change is not an action.
         assertThat(ActionExecutor.parseAction("""{"action":"arrange_ring","params":{}}""")).isEqualTo(Action.Unknown)
     }
+
+    // ---- effective groups -----------------------------------------------------
+
+    @Test
+    fun `an automatic ring uses the automatic groups`() {
+        val groups = RingBuilder.effectiveGroups(RingConfig(groups = null), phone, "app.dogo.launcher")
+
+        assertThat(groups).isEqualTo(RingBuilder.automaticGroups(phone))
+    }
+
+    @Test
+    fun `a ring with your own groups uses exactly those`() {
+        val mine = listOf(RingGroup("Mine", listOf("com.android.dialer")))
+
+        assertThat(RingBuilder.effectiveGroups(RingConfig(groups = mine), phone, "app.dogo.launcher")).isEqualTo(mine)
+    }
+
+    @Test
+    fun `an empty list of your own groups is respected, not replaced by automatic ones`() {
+        assertThat(RingBuilder.effectiveGroups(RingConfig(groups = emptyList()), phone, "app.dogo.launcher")).isEmpty()
+    }
 }

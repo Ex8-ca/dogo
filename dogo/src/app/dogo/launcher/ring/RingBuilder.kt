@@ -74,6 +74,12 @@ object RingBuilder {
         }
     }
 
+    /**
+     * The groups the ring really shows: yours if you made any (even none at all), otherwise the
+     * automatic ones. The one place that decides this, so the ring and its editor agree.
+     */
+    fun effectiveGroups(config: RingConfig, apps: List<AppEntry>, ownPackage: String = "app.dogo.launcher"): List<RingGroup> = config.groups ?: automaticGroups(apps, ownPackage)
+
     internal fun groupFor(app: AppEntry): String {
         val haystack = (app.pkg + " " + app.label).lowercase()
         // An app's own declared category beats keyword guesses.
