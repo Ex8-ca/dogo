@@ -272,11 +272,40 @@ class ActionApplier(
     }
 
     /**
-     * Applies a tile file. The text is parsed and checked line by line; lines that fail are
-     * reported, the rest still apply. Only widgets Dogo placed for tiles earlier are ever moved,
-     * resized or removed. If the grid must change, that is done first and the plan is made again
-     * against the reloaded home screen.
+     * What applying [text] would do, in plain lines, without changing anything. Used by the
+     * approval card. Problems become plain lines; coroutine cancellation still propagates.
      */
+    suspend fun previewTiles(text: String): List<String> = try {
+        val config = TileParser.parse(text)
+        val lines = ArrayList<String>()
+        if (config.isEmpty) {
+            lines += "That tile file has no usable page."
+        } else {
+            val model = LauncherAppState.getInstance(context).model
+            if (!model.isModelLoaded()) {
+                lines += "Open Dogo's home screen so the changes can be listed."
+            } else {
+                val (state, providers) = withContext(Dispatchers.IO) {
+                    TileStore(context).load() to WidgetManagerHelper(context).getAllProviders(null)
+                }
+                val done = CompletableDeferred<Result<TileApplyResult>>()
+                withContext(Dispatchers.Main) {
+                    model.enqueueModelUpdateTask(ApplyTilesTask(config, state.widgetIds, providers, allowGrid = false, dryRun = true) { done.complete(it) })
+                }
+                val result = withTimeoutOrNull(FOLDER_TIMEOUT_MS) { done.await() }?.getOrNull()
+                if (result == null) lines += "Couldn't list the changes just now." else lines += result.lines.ifEmpty { listOf("Nothing would change.") }
+            }
+        }
+        config.issues.take(3).forEach { lines += "Ignored: ${it.message}" }
+        if (config.issues.size > 3) lines += "...and ${config.issues.size - 3} more ignored issues."
+        lines
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        listOf("Couldn't list the changes just now.")
+    }
+
+    /** Applies a checked file, re-planning against live state after any grid reload. */
     private suspend fun writeTiles(action: Action.WriteTiles): String {
         val config = TileParser.parse(action.text)
         check(!config.isEmpty) {

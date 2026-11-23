@@ -82,6 +82,44 @@ Do not treat an intermediate successful build as a finished approval preview.
 Saved conversations currently do not persist these new detail lines. A preview
 is a snapshot; Apply must still re-plan from live state.
 
+## Approval-preview checkpoint after resuming
+
+The misplaced KDoc is fixed. Preview now runs when a ready tile card is shown,
+including a restored conversation, with an explicit Refresh control. There is no
+persisted preview snapshot to go stale. A summary always reports the removal
+count; the bounded planner details retain their explicit truncation marker.
+Cancellation propagates from preview work.
+
+An expandable requested-only grid schematic uses `TileGeometry`, with numbered
+boxes, labels and an accessibility description. This is deliberately NOT a live
+widget rendering or an accepted-plan drawing; the refusal list remains the
+source of truth about what cannot be placed. Widget styling remains unimplemented.
+
+Verification so far:
+
+- Spotless apply/check passed; full suite: 499 tests, zero failures/errors,
+  two skipped. Debug APK built and installed.
+- On-device dry-run reported three removals and a too-small Now Playing refusal.
+  Before/after launcher database dump, saved tile state and system widget dump
+  were identical. The preview did not allocate widget IDs or apply changes.
+- The real ready card showed the summary, all three removals, refusal reason,
+  refresh, requested grid and Apply/Dismiss. Expanded diagram and card were
+  checked via screenshots; scrolling exposed the whole card.
+- Dismissed the destructive test card without pressing Apply. Database and tile
+  state remained unchanged. Accessibility flag was still zero.
+- Evidence: `/home/marc/.hermes/cache/scratch/tiles-preview-verification/`.
+- Independent standards/spec reviews completed. Fixed their findings: file and
+  provider reads now run on IO; grid-changing previews explicitly mark counts
+  and refusals provisional; additional parser issues have an omitted count;
+  the diagram explicitly says live style settings have no effect yet.
+- Re-ran formatting/check, all 499 tests (zero failures/errors, two skipped),
+  build and install after those fixes. On-device 4x6 -> 5x6 dry-run showed the
+  provisional warning; five parser issues showed three details plus two omitted.
+  Database, saved tile state and accessibility flag were unchanged.
+- This is still a partial approval-preview slice: it does not draw the accepted
+  live plan, and stale-state confirmation semantics still need review before a
+  change materially different from the displayed snapshot may be applied.
+
 ## Remaining work, in order
 
 ### 1. Finish the approval preview (next checkpoint)

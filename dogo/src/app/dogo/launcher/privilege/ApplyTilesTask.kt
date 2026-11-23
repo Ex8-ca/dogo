@@ -59,6 +59,7 @@ class ApplyTilesTask(
     private val placedIds: Set<Int>,
     private val providers: List<AppWidgetProviderInfo>,
     private val allowGrid: Boolean,
+    private val dryRun: Boolean = false,
     private val onDone: (Result<TileApplyResult>) -> Unit,
 ) : LauncherModel.ModelUpdateTask {
 
@@ -120,6 +121,23 @@ class ApplyTilesTask(
 
         val plan = TilePlanner.plan(canonical, previous, states, idp.numColumns, idp.numRows, limits)
         val grid = plan.steps.filterIsInstance<TileStep.SetGrid>().firstOrNull()
+        // A preview only reports what would happen: nothing is written, moved or deleted.
+        if (dryRun) {
+            val kinds = plan.steps.groupingBy { it::class }.eachCount()
+            return TileApplyResult(
+                (if (grid != null) listOf("Provisional: changing the grid recalculates widget sizes. Counts and refusals below may change after reload.") else emptyList()) + listOf(
+                    "${kinds[TileStep.Remove::class] ?: 0} removed; ${kinds[TileStep.Add::class] ?: 0} added; " +
+                        "${(kinds[TileStep.Move::class] ?: 0) + (kinds[TileStep.Resize::class] ?: 0)} moved or resized; ${plan.refused.size} not placed.",
+                ) + plan.describe(),
+                kinds[TileStep.Add::class] ?: 0,
+                (kinds[TileStep.Move::class] ?: 0) + (kinds[TileStep.Resize::class] ?: 0),
+                kinds[TileStep.Remove::class] ?: 0,
+                plan.refused.size,
+                0,
+                placedIds,
+                needsGrid = grid?.let { it.columns to it.rows },
+            )
+        }
         if (grid != null && !allowGrid) {
             return TileApplyResult(plan.describe(), 0, 0, 0, plan.refused.size, 0, placedIds, needsGrid = grid.columns to grid.rows)
         }

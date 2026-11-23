@@ -11,10 +11,13 @@ import android.content.Intent
 import android.util.Log
 import app.dogo.launcher.agent.Action
 import app.dogo.launcher.privilege.ActionApplier
+import app.dogo.launcher.ui.setup.Assistant
+import app.dogo.launcher.ui.setup.SetupChatViewModel
 import com.android.launcher3.BuildConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Debug builds only, and only callable from adb (the manifest requires DUMP, which apps cannot
@@ -41,8 +44,20 @@ class TilesDebugReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {
-                val outcome = ActionApplier(app).apply(Action.WriteTiles(text))
-                Log.i(TAG, "ok=${outcome.ok} message=${outcome.message}")
+                val applier = ActionApplier(app)
+                if (intent.getBooleanExtra("card", false)) {
+                    withContext(Dispatchers.Main) {
+                        Assistant.init(app)
+                        val proposals = Assistant.proposalsFor(listOf(Action.WriteTiles(text)))
+                        Assistant.add(SetupChatViewModel.Message("Tile preview test (adb). Nothing changes until Apply.", fromUser = false, proposals = proposals))
+                    }
+                    Log.i(TAG, "approval card added; no apply")
+                } else if (intent.getBooleanExtra("preview", false)) {
+                    Log.i(TAG, "preview=${applier.previewTiles(text).joinToString(" | ")}")
+                } else {
+                    val outcome = applier.apply(Action.WriteTiles(text))
+                    Log.i(TAG, "ok=${outcome.ok} message=${outcome.message}")
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "failed: ${e.javaClass.simpleName}")
             } finally {

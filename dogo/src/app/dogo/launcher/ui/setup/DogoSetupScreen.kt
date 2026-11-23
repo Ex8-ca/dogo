@@ -795,6 +795,23 @@ private fun ProposedActionCard(
         Column(Modifier.padding(12.dp)) {
             Text("Proposed change", style = MaterialTheme.typography.labelMedium)
             Text(title, style = MaterialTheme.typography.bodyMedium)
+            val tileAction = proposal.action as? Action.WriteTiles
+            if (state is SetupChatViewModel.ActionState.Ready && tileAction != null) {
+                val context = androidx.compose.ui.platform.LocalContext.current.applicationContext
+                var detail by remember(proposal.id, tileAction.text) { mutableStateOf<List<String>?>(null) }
+                var refresh by remember(proposal.id) { androidx.compose.runtime.mutableIntStateOf(0) }
+                LaunchedEffect(proposal.id, tileAction.text, refresh) {
+                    detail = null
+                    detail = app.dogo.launcher.privilege.ActionApplier(context).previewTiles(tileAction.text)
+                }
+                Text("Live change list", style = MaterialTheme.typography.labelMedium)
+                (detail ?: listOf("Checking the home screen…")).forEach { line ->
+                    Text("• $line", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
+                }
+                Text("Apply checks the home screen again. Other items can change while this card is open.", style = MaterialTheme.typography.labelSmall)
+                TextButton(onClick = { refresh++ }) { Text("Refresh changes") }
+                TileProposalPreview(tileAction.text)
+            }
             val (note, isError) = when (state) {
                 is SetupChatViewModel.ActionState.Ready -> "Uses: ${state.route}" to false
                 SetupChatViewModel.ActionState.Disallowed -> "Switched off in Dogo Options" to true
