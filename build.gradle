@@ -144,6 +144,8 @@ final def version = "16"
 final def releaseName = "Beta 1"
 final def versionDisplayName = "${version}.${isReleaseBuild ? releaseName : devReleaseName}"
 final def majorVersion = versionDisplayName.split("\\.")[0]
+final def dogoVersion = new Properties()
+rootProject.file("dogo/version.properties").withInputStream { dogoVersion.load(it) }
 
 final def quickstepMinSdk = "35"
 final def quickstepMaxSdk = "36"
@@ -306,6 +308,10 @@ android {
         dogo {
             applicationId 'app.dogo.launcher'
             dimension "channel"
+            versionName dogoVersion.getProperty("versionName")
+            versionCode Integer.parseInt(dogoVersion.getProperty("versionCode"))
+            buildConfigField "String", "VERSION_DISPLAY_NAME", "\"${dogoVersion.getProperty('versionName')}\""
+            buildConfigField "String", "MAJOR_VERSION", "\"${dogoVersion.getProperty('versionName').tokenize('.')[0]}\""
             // Off: the update check reads the *upstream* Lawnchair releases from
             // GitHub and shows their commit messages ("a first look at Lawnchair
             // 16"), which is both wrong branding and a wrong update target for a
