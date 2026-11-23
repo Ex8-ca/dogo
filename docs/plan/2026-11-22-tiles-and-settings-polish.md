@@ -1,112 +1,197 @@
-# Plan: settings leftovers, then tiles steps 2 and 3
+# Dogo: settings polish and agent-written widget tiles
 
-Written 2026-11-22. Follows `2026-11-22-assistant-roadmap.md` (Phase 7) and the tile file
-parser already in `dogo/src/app/dogo/launcher/tiles/`.
+This is the implementation plan and resumable handoff for Phase 7 of
+`2026-11-22-assistant-roadmap.md`. Updated after the real-widget checkpoint
+`6c17316b35` on branch `dogo/foundation`.
 
-## What already exists, and what that decides
+## Goal
 
-- **Placing a widget** is `AddWidgetTask` (`privilege/HomeTasks.kt`). It writes straight to the
-  launcher database, takes a span, and finds room with `HomeGrid.findSpace`. It has no way to
-  say "put it at column 2, row 3", which tiles need.
-- **The launcher has one grid** (`InvariantDeviceProfile.numColumns x numRows`, 3 to 10 each,
-  set by `HomeStyle`). The tile parser allows 1 to 8 columns and 1 to 16 rows. These must
-  agree: tiles use the launcher's grid, so the parser range becomes 3 to 10 for both.
-- **Page 1 may reserve its top row** for "At a glance" (`HomeGrid.findSpace` does this). A tile
-  in row 0 of page 1 is refused while that is on.
-- **Widgets already clip to a rounded outline** (`BaseLauncherAppWidgetHostView`), and
-  Lawnchair already has `roundedWidgets` and `widgetPaddingFactor`. Gaps and rounding can come
-  from these with no change to upstream code. A coloured frame cannot; that is the one open
-  question (see Step 2, look).
-- **Approval cards, per-action switches and the tools-off gate** exist
-  (`ActionExecutor`, `AgentOptions.ActionType`, `ToolFreeAccess`).
+The agent arranges real Android widgets by writing a small text file. Dogo
+validates the file, previews the changes, asks for approval, applies the layout,
+and helps check how it looks. No code in the file executes. Only widgets Dogo
+placed for tiles are managed by this feature; user icons, folders and widgets
+must be preserved.
 
-## A. Settings leftovers (about half a day)
+The user's requested loop is: create and size widgets, take a screenshot, and
+check that the layout looks good. Database placement alone is not visual proof.
 
-Seen on the phone after the regrouping, none changes behaviour:
+## Verified checkpoints
 
-1. **Shizuku says "Allow" when it is not installed.** Show "Get" and open its download page
-   instead, so the button matches what it does.
-2. **"On this phone" looks selectable when the phone can't run a model.** Dim the row and make
-   it unselectable, keeping the "not available on this phone" note.
-3. **Wallpaper colours and Omarchy themes order their parts differently** (toggle first, text
-   first). Use one order in both: short description, then the controls.
-4. **Right edges don't line up** (switch, check mark, Allow button, plugin card switch), and
-   text buttons sit indented from the text above. Give trailing controls one fixed slot and
-   remove the extra start padding on text buttons.
+### Settings polish — shipped
 
-Done when: each fix is seen on the phone, tests still pass, one commit.
+- `060cb5c91f`: Dogo Options grouped into categories, tools-off route card.
+- `8d6c6a3822`: Get link for missing Shizuku, unavailable local model dimmed,
+  consistent control edges and section order. Built and checked on the phone.
 
-## B. Step 2: apply a tile file to the home screen (about 4 days)
+### Step 1 — parser and geometry — shipped
 
-**Decisions**
+- Pure Kotlin parser/writer/config/geometry in `dogo/src/app/dogo/launcher/tiles/`.
+- Page grids are 3..10 columns and rows, matching the launcher.
+- Bounded file and line lengths; plain, bounded error messages.
+- Real widget kind: `widget:<package>/<class>`.
+- Built-in kinds are not implemented by the placement layer.
 
-- **One grid.** `page = N, grid CxR, ...` must match the launcher grid. If it does not, the
-  approval card says "Grid 5x7 becomes 4x8" and applying changes the grid too (through the
-  existing `HomeStyle`). Parser range changes to 3 to 10 on both sides.
-- **Page N is launcher page N minus 1.** A page that already holds icons or folders is
-  refused: tiles never move the user's icons. The agent is told to use an empty page or add one.
-- **Only real widgets for now.** Kinds are `widget:<package>/<class>`. Words like "clock" are
-  the agent's job to turn into a real provider, from a list of installed widgets that the phone
-  context will now include (names and provider ids, capped in length).
-- **Dogo only removes what Dogo placed.** The ids of widgets it placed for tiles are kept in
-  `noBackupFilesDir`. Re-applying a changed file moves, resizes, adds and removes only those.
-  The user's own widgets are never touched.
-- **Explicit cells.** A new `PlaceWidgetTask` takes `(page, x, y, spanX, spanY)`. A widget that
-  cannot be that small or that large (`minSpan`, `maxSpan`) is reported, not silently resized.
-- **Widgets that need setup stay visible.** If Android won't bind without a prompt, the widget
-  is placed as "tap to set up" and the result says so. Giving Dogo the bind permission over adb
-  (already in the roadmap) removes the prompts.
-- **Undo.** The previous file is kept; Undo applies it through the same task.
+### Step 2 — planner and real widgets — working checkpoint
 
-**Look (gaps, rounding, frame)** starts with a short spike, because the options differ in cost:
+- `0b91e8a995`: pure `TilePlanner`, adds/moves/resizes/removals/refusals.
+- `6c17316b35`: `ApplyTilesTask`, `TileStore`, `write_tiles` action and tests.
+- Apply reads current launcher pages and provider limits, uses explicit cells,
+  persists through the launcher database, and tracks managed widget IDs under
+  `noBackupFilesDir/tiles/state.json`.
+- Only tracked widgets are changed. Other items occupy cells the planner must
+  protect. Page 1 reserves row 0 while the date line is enabled.
+- The previous file is saved. Undo has been exercised through the debug trigger;
+  a production one-tap Undo control is still needed.
+- Last full committed checkpoint: 499 tests, zero failures; APK built and
+  installed on the Pixel 2 XL. Secret scan clean before the commit.
+- Device cases exercised: add, move, resize, remove, undo, too-small provider
+  refusal, and a widget needing its own setup screen. Database and screenshots
+  were checked. An unconfigured Digital Clock looked blank until its style
+  picker was confirmed, then rendered normally.
+- Test arrangement uses page 2 of the 4x6 launcher grid. The user's page 1 and
+  dock were not intentionally rearranged.
+- Screenshot evidence lives outside the repo under
+  `/home/marc/.hermes/cache/scratch/shots/` (`t_page2.png`, `t_three.png`,
+  `t_final.png`, `t_swap.png`, `t_pending.png`, `t_cfg.png`, `t_done.png`).
 
-1. Gaps and rounding from `widgetPaddingFactor` and `roundedWidgets`. No upstream edit. Try first.
-2. A frame drawn behind each tiled widget in the workspace. Needs a small change to an upstream
-   view, marked "Modified by The Dogo Authors, 2026 (see NOTICE)". Only if 1 looks flat.
-3. If neither is clean, ship 1 only and say so. Better than a fragile hack.
+### Step 3 — agent action — partly shipped
 
-**Build order**
+- `Action.WriteTiles`, JSON action `write_tiles` with `params.file` (also accepts
+  `params.tiles`), its own action switch, standard confirmation policy.
+- Agent prompt explains providers, cells, minimum sizes, full-file replacement
+  and preservation of user items. Phone facts list installed widget providers.
+- Result reports additions, moves/resizes, removals, refusals and setup needs.
+- A real conversational agent has NOT yet designed and applied a layout.
 
-1. Parser range to 3 to 10, glance rule, tests.
-2. A pure "plan" function: current placed tiles + new file gives add, move, resize, remove,
-   refuse, with reasons. Unit tested, no Android types.
-3. `PlaceWidgetTask` and the apply step using that plan.
-4. Look spike, then the look.
-5. Phone check with real widgets: apply, change, undo; screenshots.
+## In progress at handoff
 
-## C. Step 3: the agent writes tiles, with a preview and a look check (about 3 days)
+Five files had uncommitted approval-card edits after `6c17316b35`:
 
-- **Action `write_tiles`.** The agent sends the file text. Dogo parses it, shows any dropped
-  lines with their reasons, and never applies the text directly. New action switch "Arrange
-  tiles", on by default, covered by "Confirm every action".
-- **Approval card.** Shows `TileWriter.describe` (what is added, moved, removed, which grid
-  changes) and a small drawn preview of the grid from `TileGeometry`, labelled by widget name.
-  Removing widgets always shows on the card.
-- **Result goes back to the chat.** What was placed, what needs setup, what was refused and why.
-- **Look check (the screenshot you asked for), in two layers.**
-  1. *On the phone, automatic, no model:* Dogo draws its own home page to an image (its own
-     views, no screen-capture permission). It flags a widget that is blank, smaller than its
-     tile, or not bound. A widget that draws with a video surface may look blank, so a blank
-     result is "can't tell", not "broken".
-  2. *With a model, only when you tap "Check how it looks":* the image goes to a vision model.
-     It contains other apps' content (calendar, messages), so it uses the same tools-off gate
-     as notifications and the card says where it is going first. Its reply is advice, never an
-     action.
-- **Fix loop.** The agent may answer a look-check with a new tile file. That is a new
-  `write_tiles` card, so every change is still approved.
+- `privilege/ApplyTilesTask.kt`: dry-run branch returns a plan without writes.
+- `privilege/ActionApplier.kt`: `previewTiles(text)` obtains the live plan.
+- `ui/setup/Assistant.kt`: obtains detail lines while building proposals.
+- `ui/setup/SetupChatViewModel.kt`: optional proposal detail lines.
+- `ui/setup/DogoSetupScreen.kt`: renders those lines on ready cards.
 
-**Build order:** action and parser wiring with tests; preview card; apply and result message;
-home-page image and local checks; model check; phone run with the real agent.
+That intermediate code built successfully, but Spotless failed because a KDoc
+for `writeTiles` was left immediately before the KDoc for `previewTiles` at
+`ActionApplier.kt:274`. Fix the misplaced comment, then re-run all gates. The
+preview additions had NOT been unit-tested or exercised on the phone yet.
 
-## Risks
+Do not treat an intermediate successful build as a finished approval preview.
+Saved conversations currently do not persist these new detail lines. A preview
+is a snapshot; Apply must still re-plan from live state.
 
-- Android may keep asking to bind widgets; the adb permission is the fix and is optional.
-- A widget's minimum size can be bigger than the tile the agent chose. Reported, then the agent
-  chooses again.
-- A frame needs an upstream edit; kept out unless the spike shows it is worth it.
-- The look check can't see inside widgets that use video surfaces.
+## Remaining work, in order
 
-## Done means
+### 1. Finish the approval preview (next checkpoint)
 
-Each step: tests pass, built, run on the Pixel with real widgets, screenshots looked at,
-committed and pushed, and what was not checked is written down.
+- Repair lint and preserve coroutine cancellation in the preview path.
+- Show bounded add/move/resize/remove/grid-change/refusal detail lines.
+- Ensure removals are not hidden by a line cap; make truncation explicit.
+- Draw a small labelled grid preview from `TileGeometry`. Clearly distinguish
+  the requested layout from what the live planner can actually place; a refused
+  widget must not look like an approved placement.
+- Show preview limitations: provider content is not rendered, styling is not
+  implemented, state can change before Apply.
+- Restored ready proposals must regenerate their preview or state clearly that
+  it is unavailable, not silently show stale or absent details.
+- Verify dry-run does not allocate widget IDs, change the launcher database,
+  update tile state or change the grid.
+- Exercise an actual approval card, including a refusal/removal, on the Pixel.
+
+### 2. User-facing Undo and reliable file state
+
+- Add a one-tap Undo control that applies the previous file through the same
+  checks. Undo should be an explicit action, not a hidden debug-only function.
+- Handle an initially empty arrangement and widgets requiring setup honestly.
+- Review atomic state saving, partial apply failures, queued task timeouts,
+  provider resolution, managed IDs and grid-reload races before expanding use.
+- Do not claim an all-or-nothing transaction until it exists and is tested.
+
+### 3. Tile appearance spike
+
+- `general` style keys parse today but do NOT affect live widget appearance.
+- Try existing `widgetPaddingFactor` and `roundedWidgets` first. Determine
+  whether these global preferences would unexpectedly change non-tile widgets.
+- Prefer tile-only styling if global options affect the user's own widgets.
+- Add a frame only if a small, maintainable upstream host-view hook is justified;
+  mark modified upstream files with the Dogo attribution required by NOTICE.
+- Do not promise blur/frame/rounding until rendered device evidence exists.
+- Check equal gaps, side margins, content-fit heights and wallpaper legibility.
+  The current test layout is functional but visually uneven.
+
+### 4. Local look check (no model, no upload)
+
+- Capture Dogo's own home-page views, not other apps' screens; no general
+  screen-capture or accessibility permission should be needed.
+- Inspect missing/unbound/setup-pending widgets and tile bounds locally.
+- Blank rendering means "cannot tell", not "broken" (surface widgets and
+  intentionally empty widgets are possible).
+- Provide a visible image/result and account for a page not currently visible.
+
+### 5. Opt-in vision advice
+
+- Add "Check how it looks" with a destination disclosure before sending.
+- Calendar/message widgets contain untrusted and potentially private content.
+  Use the enforced tools-off route, not the ordinary tool-enabled Hermes route.
+- Advice must not run actions. A proposed fix is a fresh approval card.
+- Test destination, route refusal, cancellation, no-upload path and image support.
+- Do not modify the remote Hermes server/profile without permission.
+
+### 6. Real-agent end-to-end run and edge cases
+
+- Ask the configured agent for a layout using the installed-provider facts.
+- Inspect the proposal, apply it, read the result, screenshot and inspect visually.
+- Test page 1 reserved date row without disturbing existing user items.
+- Test changed grid, occupied page, duplicate providers, missing providers,
+  no-op reapply, stale approval and restart/reload.
+- Recheck that accessibility stays OFF; never accept a root prompt for the user.
+
+## Other leftovers to verify (not completed by this plan)
+
+- Safe-route card and a real notification through `dogosafe` on the phone.
+- Whether dogosafe background review/memory writing is disabled: recover the
+  earlier verification or read the approved server scope; do not guess.
+- The requested bundled neon wallpaper and wordmark visibility: inspect current
+  assets/history and device, rather than assuming an earlier request shipped.
+
+## Main code and verification commands
+
+Repo: `/home/marc/Projects/Dogo/dogo`, branch `dogo/foundation`.
+
+Relevant files:
+
+- `dogo/src/app/dogo/launcher/tiles/{TileConfig,TileParser,TileWriter,TilePlan,TileStore,TilesDebugReceiver}.kt`
+- `dogo/src/app/dogo/launcher/privilege/{ApplyTilesTask,ActionApplier}.kt`
+- `dogo/src/app/dogo/launcher/agent/{ActionExecutor,AgentOptions}.kt`
+- `dogo/src/app/dogo/launcher/ui/setup/{Assistant,SetupChatViewModel,DogoSetupScreen,SetupChatAgent,PhoneFacts,Conversations}.kt`
+- Tests: `dogo/tests/app/dogo/launcher/tiles/` and
+  `dogo/tests/app/dogo/launcher/agent/WriteTilesActionTest.kt`.
+
+Run in order, not concurrently with source edits:
+
+```sh
+./tools/dev/dev.sh shell spotlessApply -q
+./tools/dev/dev.sh test -q
+./tools/dev/dev.sh build -q
+```
+
+Count failures/errors/skips from
+`build/test-results/testLawnWithQuickstepDogoDebugUnitTest/TEST-*.xml`.
+Build logs are under `/home/marc/.hermes/cache/scratch/b_*.log`.
+Install the debug APK with `adb install -r -t`.
+
+The adb-only `TilesDebugReceiver` requires DUMP and checks `BuildConfig.DEBUG`.
+It accepts `--es file` (pipes mean newlines) or `--ez undo true`. Production
+agent changes go through `ActionApplier` and the normal approval policy.
+
+## Release discipline
+
+- Commit documentation separately from implementation, using
+  `Dogo Dev <dev@dogo.ca>`.
+- Before every commit scan staged additions for actual known key values without
+  printing them, plus the configured ephemeral, project and safe-profile key prefixes.
+- Keep all credentials out of source, plans, logs and screenshots.
+- For every checkpoint report separately: formatted, tested, built, device
+  exercised, committed and pushed. Explicitly list anything still unverified.
