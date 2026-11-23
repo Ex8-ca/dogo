@@ -113,7 +113,7 @@ internal fun RingEditor(onDismiss: () -> Unit, onSave: () -> Unit) {
             }
             apps = loaded
             if (!initialized) {
-                groups = RingBuilder.automaticGroups(loaded, context.packageName.substringBefore(".debug"))
+                groups = RingBuilder.effectiveGroups(baseline, loaded, context.packageName.substringBefore(".debug"))
                 initialGroups = groups
                 initialized = true
             }
@@ -146,6 +146,11 @@ internal fun RingEditor(onDismiss: () -> Unit, onSave: () -> Unit) {
                             submitted = true
                             saveError = null
                             if (groups.any { it.name.isBlank() }) return@Button
+                            if (!dirty) {
+                                // Nothing was edited: leave an automatic ring automatic.
+                                onSave()
+                                return@Button
+                            }
                             if (DogoRing.config(context).groups != baseline.groups) {
                                 conflict = true
                                 return@Button
@@ -273,7 +278,7 @@ internal fun RingEditor(onDismiss: () -> Unit, onSave: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     baselineJson = DogoRing.config(context).toJson()
-                    groups = RingConfig.fromJson(baselineJson).groups ?: RingBuilder.automaticGroups(apps.orEmpty(), context.packageName.substringBefore(".debug"))
+                    groups = RingBuilder.effectiveGroups(RingConfig.fromJson(baselineJson), apps.orEmpty(), context.packageName.substringBefore(".debug"))
                     initialGroups = groups
                     initialized = true
                     submitted = false

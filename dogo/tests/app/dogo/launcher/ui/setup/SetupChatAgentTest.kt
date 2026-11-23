@@ -6,6 +6,7 @@
 package app.dogo.launcher.ui.setup
 
 import app.dogo.launcher.agent.ActionExecutor
+import app.dogo.launcher.agent.AgentOptions
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
@@ -26,19 +27,11 @@ class SetupChatAgentTest {
     fun `system prompt documents every action the executor understands`() {
         // If these ever drift apart the model will emit actions that parse to
         // Unknown and the agent will silently do nothing.
-        val documented = listOf(
-            "set_wallpaper",
-            "add_to_home",
-            "hide_app",
-            "create_folder",
-            "set_theme",
-            "set_system_dark_mode",
-            "set_animation_scale",
-            "arrange_ring",
-            "add_widget",
-            "style_home",
-            "set_dock",
-        )
+        // Walk the real action list, so a new action cannot be left out of this check.
+        // Plugin actions are named by each plugin, not documented one by one in the prompt.
+        val documented = AgentOptions.ActionType.entries
+            .filter { it != AgentOptions.ActionType.PLUGIN }
+            .map { it.wireName }
 
         documented.forEach { action ->
             assertThat(SetupChatAgent.systemPrompt).contains(action)
@@ -173,6 +166,7 @@ class SetupChatAgentTest {
         "add_widget" -> """{"widget":"com.example/.W"}"""
         "style_home" -> """{"labels":true}"""
         "set_dock" -> """{"apps":["com.example"]}"""
+        "write_tiles" -> """{"file":"page = 1, grid 4x6"}"""
         else -> "{}"
     }
 }

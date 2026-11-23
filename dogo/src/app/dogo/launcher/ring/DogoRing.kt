@@ -64,7 +64,7 @@ object DogoRing {
         val config = config(launcher)
         val (apps, icons) = installedApps(launcher)
         if (apps.isEmpty()) return null
-        val groups = config.groups ?: RingBuilder.automaticGroups(apps, launcher.packageName.substringBefore(".debug"))
+        val groups = RingBuilder.effectiveGroups(config, apps, launcher.packageName.substringBefore(".debug"))
         val root = RingBuilder.build(groups, apps)
 
         val dragLayer = launcher.dragLayer
