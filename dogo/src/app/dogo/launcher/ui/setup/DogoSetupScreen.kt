@@ -754,6 +754,8 @@ internal fun describe(action: Action): String? = when (action) {
 
     is Action.StyleHome -> "Home screen: ${action.style.clamped().describe().ifEmpty { "no change" }}"
 
+    is Action.WriteTiles -> "Arrange widgets as tiles"
+
     is Action.SetDock -> "Dock: ${action.apps.joinToString { it.substringAfterLast('.') }}"
 
     is Action.AddToHome -> "Add ${action.pkg} to home"

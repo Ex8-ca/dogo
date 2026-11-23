@@ -21,6 +21,11 @@
             android:name="app.dogo.launcher.screenuse.ScreenUseDebugReceiver"
             android:exported="true"
             android:permission="android.permission.DUMP" />
+
+        <receiver
+            android:name="app.dogo.launcher.tiles.TilesDebugReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
     </application>
 
     <!-- Talking to Dogo (OpenAI Realtime voice). Asked for only when the user taps the mic. -->

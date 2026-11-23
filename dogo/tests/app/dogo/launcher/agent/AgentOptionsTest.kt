@@ -74,6 +74,7 @@ class AgentOptionsTest {
             Action.AddWidget("com.example/.Clock", "4x2"),
             Action.StyleHome(HomeStyle(columns = 5)),
             Action.SetDock(listOf("com.example")),
+            Action.WriteTiles("page = 1, grid 4x4"),
             Action.Plugin("io.github.you.timer", "start_timer", "{}"),
         )
         for (action in wireActions) {

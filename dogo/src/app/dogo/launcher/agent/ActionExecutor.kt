@@ -7,6 +7,7 @@ package app.dogo.launcher.agent
 
 import app.dogo.launcher.ring.RingConfig
 import app.dogo.launcher.ring.RingGroup
+import app.dogo.launcher.tiles.TileParser
 import org.json.JSONObject
 
 /**
@@ -37,6 +38,12 @@ sealed class Action {
 
     /** Grid, icons, dock, accent and the other look-and-feel switches. */
     data class StyleHome(val style: HomeStyle) : Action()
+
+    /**
+     * Arranges widgets on the home screen from a tile file (see tiles/TileParser). [text] is data,
+     * never run; Dogo checks it line by line and shows what would change before anything moves.
+     */
+    data class WriteTiles(val text: String) : Action()
 
     /** Replaces the dock's apps, left to right. */
     data class SetDock(val apps: List<String>) : Action()
@@ -164,6 +171,12 @@ object ActionExecutor {
                 Action.StyleHome(style)
             }
 
+            "write_tiles" -> {
+                val text = params.optString("file").ifBlank { params.optString("tiles") }
+                if (text.isBlank()) return Action.Unknown
+                Action.WriteTiles(text.take(TileParser.MAX_CHARS + 1))
+            }
+
             "set_dock" -> {
                 val appsArray = params.optJSONArray("apps") ?: return Action.Unknown
                 val apps = (0 until appsArray.length()).mapNotNull { appsArray.optString(it).trim().ifEmpty { null } }
@@ -282,6 +295,8 @@ object ActionExecutor {
         }
 
         is Action.StyleHome -> """{"action":"style_home","params":${action.style.toJson()}}"""
+
+        is Action.WriteTiles -> """{"action":"write_tiles","params":{"file":${quote(action.text)}}}"""
 
         is Action.SetDock -> """{"action":"set_dock","params":{"apps":${action.apps.toJsonArray()}}}"""
 

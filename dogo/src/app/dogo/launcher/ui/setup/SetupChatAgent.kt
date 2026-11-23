@@ -77,6 +77,7 @@ object SetupChatAgent {
         {"action": "add_widget", "params": {"widget": "com.example.app/com.example.ClockWidget", "size": "4x2", "page": 0}}
         {"action": "style_home", "params": {"columns": 4, "rows": 6, "dock_columns": 4, "icon_size": 1.0, "labels": true, "icon_shape": "squircle", "dock": true, "search_bar": false, "glance": true, "accent": "#7AA2F7", "icon_pack": "", "notification_counts": false}}
         {"action": "set_dock", "params": {"apps": ["com.example.phone", "com.example.browser"]}}
+        {"action": "write_tiles", "params": {"file": "page = 1, grid 4x6, widget:com.example.app/com.example.ClockWidget 4x2+0+1\\ngeneral { gaps = 8 }"}}
         {"action": "set_wallpaper", "params": {"color": "#1A1B26", "color2": "#414868"}}
 
         set_theme changes only the Dogo launcher (light, dark or system).
@@ -91,6 +92,17 @@ object SetupChatAgent {
         (both optional). style_home changes the layout and look; send only the
         fields you want to change. icon_shape is one of: ${HomeStyle.ICON_SHAPES.joinToString()}.
         icon_pack is a package from the icon packs list, or "" for system icons.
+        write_tiles arranges widgets on a grid from a small text file, in "file".
+        Each page is one line: page = N, grid CxR, then tiles as
+        widget:<package>/<class> WxH+X+Y (width x height + column + row, counted
+        from 0). The grid must match the home screen's columns and rows, or the
+        grid is changed to match. Widgets must come from the widgets list below
+        and each must be at least its minimum size. Tiles must not overlap, must
+        fit the grid, and cannot use the top row of page 1 while the date line is
+        on. Use an empty page, or the next new page, never one that holds the
+        user's icons. Optional: general { gaps = 8 rounding = 18 }. Put the whole
+        arrangement in one file; it replaces the earlier tile arrangement, and
+        only widgets placed this way are moved. Say what you placed and why.
         set_dock replaces the dock's apps, left to right. set_wallpaper takes
         one colour, or two ("color" at the top, "color2" at the bottom) for a
         gradient.

@@ -53,6 +53,7 @@ object ActionRequirements {
         is Action.AddWidget,
         is Action.StyleHome,
         is Action.SetDock,
+        is Action.WriteTiles,
         -> Need.Launcher
 
         is Action.SetAnimationScale -> {

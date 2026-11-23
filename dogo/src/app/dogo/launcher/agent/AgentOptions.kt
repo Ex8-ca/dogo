@@ -127,6 +127,11 @@ data class AgentOptions(
             "Change the home screen layout",
             "Grid size, icon size and shape, labels, dock, search bar, accent colour.",
         ),
+        WRITE_TILES(
+            "write_tiles",
+            "Arrange widgets as tiles",
+            "Places and resizes widgets on a grid from a tile file. Only widgets Dogo placed this way are moved.",
+        ),
         SET_DOCK(
             "set_dock",
             "Choose the dock apps",
@@ -150,6 +155,7 @@ data class AgentOptions(
             ARRANGE_RING -> Action.ArrangeRing(emptyList(), null)
             ADD_WIDGET -> Action.AddWidget("")
             STYLE_HOME -> Action.StyleHome(HomeStyle())
+            WRITE_TILES -> Action.WriteTiles("")
             SET_DOCK -> Action.SetDock(emptyList())
             PLUGIN -> Action.Plugin("", "", "{}")
         }
@@ -169,6 +175,7 @@ data class AgentOptions(
                 is Action.ArrangeRing -> ARRANGE_RING
                 is Action.AddWidget -> ADD_WIDGET
                 is Action.StyleHome -> STYLE_HOME
+                is Action.WriteTiles -> WRITE_TILES
                 is Action.SetDock -> SET_DOCK
                 is Action.Plugin -> PLUGIN
                 Action.Unknown -> null

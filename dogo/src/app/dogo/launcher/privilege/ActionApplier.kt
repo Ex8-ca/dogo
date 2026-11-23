@@ -23,6 +23,8 @@ import app.dogo.launcher.agent.WidgetSize
 import app.dogo.launcher.plugins.PluginActionRunner
 import app.dogo.launcher.ring.DogoRing
 import app.dogo.launcher.ring.RingStyle
+import app.dogo.launcher.tiles.TileParser
+import app.dogo.launcher.tiles.TileStore
 import app.lawnchair.hotseat.HotseatMode
 import app.lawnchair.icons.shape.IconShape
 import app.lawnchair.preferences.PreferenceManager
@@ -155,6 +157,8 @@ class ActionApplier(
 
         is Action.SetDock -> setDock(action)
 
+        is Action.WriteTiles -> writeTiles(action)
+
         else -> error("Not a launcher action")
     }
 
@@ -267,6 +271,58 @@ class ActionApplier(
         }
     }
 
+    /**
+     * Applies a tile file. The text is parsed and checked line by line; lines that fail are
+     * reported, the rest still apply. Only widgets Dogo placed for tiles earlier are ever moved,
+     * resized or removed. If the grid must change, that is done first and the plan is made again
+     * against the reloaded home screen.
+     */
+    private suspend fun writeTiles(action: Action.WriteTiles): String {
+        val config = TileParser.parse(action.text)
+        check(!config.isEmpty) {
+            "That tile file has no usable page." + config.issues.firstOrNull()?.let { " ${it.message}" }.orEmpty()
+        }
+        val model = LauncherAppState.getInstance(context).model
+        check(model.isModelLoaded()) { NEEDS_HOME_SCREEN_WIDGET }
+        val store = TileStore(context)
+        val state = store.load()
+        val providers = WidgetManagerHelper(context).getAllProviders(null)
+
+        suspend fun runOnce(allowGrid: Boolean): TileApplyResult {
+            val done = CompletableDeferred<Result<TileApplyResult>>()
+            withContext(Dispatchers.Main) {
+                model.enqueueModelUpdateTask(ApplyTilesTask(config, state.widgetIds, providers, allowGrid) { done.complete(it) })
+            }
+            return (withTimeoutOrNull(FOLDER_TIMEOUT_MS) { done.await() } ?: error(NEEDS_HOME_SCREEN_WIDGET)).getOrThrow()
+        }
+
+        var result = runOnce(allowGrid = false)
+        result.needsGrid?.let { (columns, rows) ->
+            styleHome(HomeStyle(columns = columns, rows = rows))
+            // Changing the grid reloads the home screen; wait for it before planning again.
+            check(
+                withTimeoutOrNull(GRID_RELOAD_MS) {
+                    while (!model.isModelLoaded()) kotlinx.coroutines.delay(250)
+                    true
+                } == true,
+            ) {
+                "The home screen did not finish reloading after the grid changed. Open Dogo's home screen and try again."
+            }
+            result = runOnce(allowGrid = true)
+        }
+        store.save(TileStore.State(result.widgetIds, action.text, state.file))
+
+        return buildString {
+            append("Tiles: ${result.added} added, ${result.moved} moved or resized, ${result.removed} removed")
+            if (result.refused > 0) append(", ${result.refused} not placed")
+            append('.')
+            if (result.needsSetup > 0) append(" ${result.needsSetup} widget${if (result.needsSetup == 1) " needs" else "s need"} a tap on the home screen to finish setup.")
+            val notes = result.lines.filter { it.startsWith("Not placed") || it.startsWith("Grid") }
+            if (notes.isNotEmpty()) append(' ').append(notes.joinToString(" "))
+            if (config.issues.isNotEmpty()) append(" Lines ignored: ${config.issues.take(3).joinToString("; ") { it.message }}.")
+        }
+    }
+
     private suspend fun setDock(action: Action.SetDock): String {
         val user = Process.myUserHandle()
         val launcherApps = context.getSystemService(LauncherApps::class.java)
@@ -334,6 +390,7 @@ class ActionApplier(
     private companion object {
         const val WALLPAPER_SIZE = 64
         const val FOLDER_TIMEOUT_MS = 10_000L
+        const val GRID_RELOAD_MS = 20_000L
         const val NEEDS_HOME_SCREEN_WIDGET =
             "Widgets go on Dogo's home screen. Set Dogo as your home app (or open it once), then try again."
         const val NEEDS_HOME_SCREEN =
