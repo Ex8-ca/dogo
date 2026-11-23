@@ -932,7 +932,18 @@ private fun TermuxAgentCard(
 
 @Composable
 private fun RingSection(config: RingConfig, onChange: ((RingConfig) -> RingConfig) -> Unit) {
+    var editing by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    if (editing) {
+        RingEditor(
+            onDismiss = { editing = false },
+            onSave = {
+                editing = false
+                onChange { it }
+            },
+        )
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { editing = true }) { Text("Edit ring") }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Touch and hold to open the ring", style = MaterialTheme.typography.bodyMedium)
