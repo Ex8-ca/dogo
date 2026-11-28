@@ -1241,6 +1241,8 @@ public class Launcher extends StatefulActivity<LauncherState>
         }
 
         DragView.removeAllViews(this);
+        // Dogo: picks up a changed ring-home setting or a new app list.
+        app.dogo.launcher.ring.RingHome.INSTANCE.sync(this);
         TraceHelper.INSTANCE.endSection();
     }
 
@@ -1369,6 +1371,10 @@ public class Launcher extends StatefulActivity<LauncherState>
                 this, R.attr.isWorkspaceDarkText) ? Color.BLACK : Color.WHITE);
 
         mDepthBlurTargets = List.of(mWorkspace, mHotseat);
+
+        // Dogo: the ring home screen sits exactly here, above the workspace and
+        // below the scrim and all-apps, so the drawer slides over the rings.
+        app.dogo.launcher.ring.RingHome.INSTANCE.attachIfEnabled(this);
     }
 
     /**
@@ -1783,6 +1789,7 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     @Override
     public void onDestroy() {
+        app.dogo.launcher.ring.RingHome.INSTANCE.detach(this);
         super.onDestroy();
         ACTIVITY_TRACKER.onContextDestroyed(this);
 
@@ -2106,6 +2113,10 @@ public class Launcher extends StatefulActivity<LauncherState>
     @Override
     @TargetApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     public void onBackPressed() {
+        // Dogo: Back closes the ring drawer rather than leaving the launcher.
+        if (app.dogo.launcher.ring.RingHome.INSTANCE.onBack(this)) {
+            return;
+        }
         getOnBackAnimationCallback().onBackInvoked();
     }
 

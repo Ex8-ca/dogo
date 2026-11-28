@@ -30,6 +30,13 @@ the Lawnchair project or Google. Please report Dogo bugs
 
 ## What Dogo adds
 
+- **Ring home.** An optional home screen (Dogo > Options) where your apps sit on
+  three concentric circles anchored to the edge of the screen, like the one-handed
+  launchers it is modelled on. Drag a circle and it spins; let go and it settles
+  with the app nearest your thumb, ready to tap. The hub on the edge opens the app
+  drawer as a wider fan of every app. Pick a hand and the whole layout mirrors,
+  clock and all. Your normal workspace (widgets, folders, the app grid) stays
+  underneath untouched, so turning it off puts everything back.
 - **The Dogo Ring.** Touch and hold anywhere on the home screen and a radial
   menu opens under your thumb (inspired by
   [Tenkai Launcher](https://tenkailauncher.com/)'s pies). Slide to a group,

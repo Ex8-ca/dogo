@@ -54,6 +54,10 @@ data class RingConfig(
     val holdMs: Long = DEFAULT_HOLD_MS,
     /** null means "group my apps automatically". */
     val groups: List<RingGroup>? = null,
+    /** Show the ring home screen (rings of apps) instead of the app grid. */
+    val home: Boolean = false,
+    /** Which hand holds the phone: the home screen mirrors for a left thumb. */
+    val hand: HomeHand = HomeHand.RIGHT,
 ) {
     val isAutomatic: Boolean get() = groups == null
 
@@ -61,6 +65,8 @@ data class RingConfig(
         put("enabled", enabled)
         put("style", style.wireName)
         put("holdMs", holdMs)
+        put("home", home)
+        put("hand", hand.wireName)
         groups?.let { list ->
             put(
                 "groups",
@@ -85,6 +91,8 @@ data class RingConfig(
                     style = RingStyle.fromWire(o.optString("style")) ?: fallback.style,
                     holdMs = o.optLong("holdMs", fallback.holdMs).coerceIn(HOLD_RANGE),
                     groups = o.optJSONArray("groups")?.let { parseGroups(it) },
+                    home = o.optBoolean("home", fallback.home),
+                    hand = HomeHand.fromWire(o.optString("hand")) ?: fallback.hand,
                 )
             }.getOrDefault(fallback)
         }

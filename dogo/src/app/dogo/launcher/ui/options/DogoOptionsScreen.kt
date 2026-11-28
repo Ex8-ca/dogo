@@ -76,6 +76,7 @@ import app.dogo.launcher.llm.ModelCatalog
 import app.dogo.launcher.plugins.PluginRegistry
 import app.dogo.launcher.privilege.Tier
 import app.dogo.launcher.privilege.TierStatus
+import app.dogo.launcher.ring.HomeHand
 import app.dogo.launcher.ring.RingConfig
 import app.dogo.launcher.ring.RingStyle
 import app.dogo.launcher.themes.OmarchyThemeSource
@@ -943,6 +944,31 @@ private fun RingSection(config: RingConfig, onChange: ((RingConfig) -> RingConfi
         )
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // The ring home screen: concentric rings of apps you spin with a thumb.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Ring home", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "Your apps sit on three circles you spin with one thumb, instead of a grid. " +
+                        "The app grid is kept underneath: turn this off and it is back exactly as it was.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = config.home, onCheckedChange = { on -> onChange { it.copy(home = on) } })
+        }
+        if (config.home) {
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                HomeHand.entries.forEachIndexed { i, hand ->
+                    SegmentedButton(
+                        selected = config.hand == hand,
+                        onClick = { onChange { it.copy(hand = hand) } },
+                        shape = SegmentedButtonDefaults.itemShape(i, HomeHand.entries.size),
+                        icon = {},
+                    ) { Text(hand.title, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelMedium) }
+                }
+            }
+        }
         Button(onClick = { editing = true }) { Text("Edit ring") }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
